@@ -1,0 +1,516 @@
+C:\Users\KNT23272\work\XQA\Source_code\Hai_Create_syo_new_21_10_2025\env_XQA\Scripts\activate
+
+env_XQA\Scripts\activate
+
+streamlit run LOGIN.py
+
+env_XQA\Scripts\activate
+
+streamlit run LOGIN.py
+
+
+Có các góp ý sau từ Giáo sư:
+- Tên đề tài sửa thành: Nghiên cứu phương pháp loại nhãn nhiễu cho học có giám sát
+- Lọc nhiễu là phương pháp chung, không phải cho dữ liệu ảnh, nên phân lý do sửa lại không chỉ cho phân loại ảnh
+- Tài liệu tham khảo cần bố sung tài liệu chính: SELF: Learning to Filter Noisy Labels with Self-Ensembling
+- Các cụm từ theo thời gian không rõ làm gì nếu nó không ảnh hưởng gì tới nội dung thì hãy bỏ đi
+- Chương 3: Nếu có tập dữ liệu cụ thể rồi thì điền vào
+
+Hãy dựa vào kiến thức chuyên sâu để phân tích chi tiết, lập luận, suy luận, đưa ra hướng cải thiện chi tiết từng phần của đề cương:
+
+I. MỞ ĐẦU
+1. Lý do chọn đề tài
+Phân loại ảnh là một bài toán nền tảng trong thị giác máy tính và có mặt trong nhiều ứng dụng thực tiễn như giám sát, y tế, sản xuất công nghiệp, thương mại điện tử và tìm kiếm đa phương tiện. Cùng với sự phát triển của học sâu, hiệu quả phân loại ảnh được cải thiện đáng kể khi có dữ liệu huấn luyện gán nhãn quy mô lớn. Thực tế cho thấy quy mô dữ liệu trong nghiên cứu và triển khai ngày càng lớn: ImageNet thống kê hơn 14 triệu ảnh, và riêng tập con ILSVRC-2012 được sử dụng rộng rãi cho phân loại gồm khoảng 1,2 triệu ảnh huấn luyện với 1.000 lớp. Trong bài toán nhận dạng đối tượng, MS COCO có quy mô 328.000 ảnh với khoảng 2,5 triệu đối tượng được gán nhãn theo từng thể hiện.
+
+Tuy nhiên, khi dữ liệu tăng nhanh về quy mô, việc đảm bảo nhãn “sạch” tuyệt đối trở nên khó khăn. Trong thực tế, nhãn có thể bị sai do sai sót của người gán nhãn, khác biệt tiêu chí giữa nhiều nhóm gán nhãn, sự mơ hồ của ảnh (chất lượng thấp, che khuất, nhiều đối tượng), hoặc do dữ liệu được thu thập từ nhiều nguồn và quy trình khác nhau. Đặc biệt, đối với dữ liệu lớn, việc gán nhãn thường phải dựa vào cộng đồng, crowdsourcing để giảm chi phí và thời gian, đây là điều kiện thuận lợi để xuất hiện nhãn nhiễu. Ngay cả với các bộ dữ liệu chuẩn, nhãn sai vẫn có thể tồn tại: một nghiên cứu về “label errors” trên các benchmark phổ biến ước lượng tối thiểu khoảng 6% mẫu trong tập validation của ImageNet có khả năng bị gán nhãn sai.
+
+Trong điều kiện nhãn nhiễu, mô hình học sâu không chỉ suy giảm hiệu năng mà còn đối mặt với rủi ro “học lệch”: mô hình có thể học nhanh các mẫu dễ ở giai đoạn đầu, nhưng khi huấn luyện kéo dài có thể dần ghi nhớ các nhãn sai, làm giảm khả năng tổng quát hóa. Việc làm sạch nhãn thủ công trên quy mô lớn thường tốn kém, khó duy trì tính nhất quán giữa nhiều người gán nhãn và không thuận lợi trong bối cảnh dữ liệu liên tục thay đổi. Do đó, nghiên cứu các kỹ thuật giúp mô hình học tốt hơn khi nhãn không hoàn hảo là một vấn đề có tính cấp thiết và có giá trị ứng dụng.
+Trong các hướng tiếp cận hiện nay, một hướng có tính khả thi cao là khai thác tín hiệu từ chính quá trình huấn luyện để ước lượng mức độ tin cậy của nhãn. Thay vì chỉ nhìn dự đoán của mô hình tại một thời điểm, có thể quan sát dự đoán của mô hình theo thời gian huấn luyện: với những mẫu có nhãn đáng tin cậy, dự đoán thường sớm ổn định và có xu hướng nhất quán. Ngược lại, với những mẫu nghi nhiễu hoặc mơ hồ, dự đoán có thể dao động hoặc mâu thuẫn theo thời gian. Nếu tận dụng tốt tín hiệu này, có thể lựa chọn được tập dữ liệu huấn luyện hiệu dụng hơn, giảm ảnh hưởng của nhãn sai mà không phụ thuộc quá nhiều vào việc làm sạch thủ công.
+
+Vì vậy, đề tài “Kỹ thuật lọc nhãn nhiễu dựa trên dự đoán theo thời gian trong phân loại ảnh” được lựa chọn nhằm xây dựng và đánh giá một hướng tiếp cận vừa có cơ sở lập luận rõ ràng, vừa có tính khả thi trong thực tế: tận dụng thông tin sẵn có trong quá trình huấn luyện để sàng lọc dữ liệu, từng bước cải thiện chất lượng huấn luyện mô hình trong điều kiện nhãn không hoàn hảo.
+
+2. Mục đích nghiên cứu
+Mục đích của luận văn là nghiên cứu và xây dựng một kỹ thuật lọc nhãn nhiễu cho bài toán phân loại ảnh dựa trên dự đoán của mô hình theo thời gian huấn luyện, nhằm nâng cao hiệu năng và tăng độ tin cậy của mô hình học sâu trong điều kiện dữ liệu huấn luyện có nhãn không hoàn hảo.
+
+Về mặt trực giác, một mẫu dữ liệu có nhãn đáng tin cậy thường được mô hình học đúng sớm và dự đoán có xu hướng ổn định hơn khi quá trình huấn luyện tiếp diễn. Ngược lại, với các mẫu bị gán nhãn sai hoặc mơ hồ, dự đoán của mô hình có thể dao động, thay đổi hoặc mâu thuẫn theo thời gian. Nếu chỉ dựa vào dự đoán tại một thời điểm để quyết định giữ hoặc loại mẫu, tín hiệu có thể thiếu ổn định do ảnh hưởng của ngẫu nhiên huấn luyện, tăng cường dữ liệu và nhiễu tối ưu. Do đó, việc khai thác dự đoán theo thời gian như một “bằng chứng tích lũy” có thể giúp đánh giá độ tin cậy nhãn tốt hơn, từ đó lựa chọn được dữ liệu huấn luyện hiệu dụng và giảm ảnh hưởng của nhãn sai mà không cần phụ thuộc nhiều vào làm sạch thủ công.
+
+Trên cơ sở đó, luận văn hướng tới các kết quả cần đạt được sau đây:
+Hệ thống hóa cơ sở lý thuyết về học với nhãn nhiễu trong phân loại ảnh, tổng quan các nhóm phương pháp tiêu biểu, phân tích ưu điểm, hạn chế và các vấn đề còn tồn tại.
+Đề xuất một khung kỹ thuật lọc nhãn nhiễu dựa trên dự đoán theo thời gian, trong đó làm rõ cách hình thành chuỗi dự đoán trong quá trình huấn luyện và xây dựng tiêu chí đánh giá độ tin cậy nhãn từ tín hiệu theo thời gian.
+Xây dựng cơ chế lựa chọn dữ liệu huấn luyện hiệu dụng dựa trên tiêu chí độ tin cậy, đồng thời đưa ra nguyên tắc đảm bảo tính ổn định và hạn chế mất cân bằng dữ liệu khi tiến hành lọc.
+Thiết lập quy trình đánh giá và kiểm chứng bằng thực nghiệm. So sánh kết quả của kỹ thuật đề xuất với cách huấn luyện thông thường và một số hướng tiếp cận liên quan, phân tích, thảo luận và rút ra nhận xét.
+Đề xuất khuyến nghị và định hướng phát triển tiếp theo nhằm nâng cao khả năng áp dụng của kỹ thuật trong các kịch bản nhãn không hoàn hảo.
+
+Về mặt lý luận, luận văn kỳ vọng làm rõ vai trò của tín hiệu dự đoán theo thời gian trong việc phản ánh độ tin cậy nhãn và góp phần hệ thống hóa cách khai thác tín hiệu này cho bài toán lọc nhãn nhiễu. Về mặt thực tiễn, luận văn hướng tới một khung kỹ thuật có thể triển khai và mở rộng, hỗ trợ cải thiện hiệu quả huấn luyện mô hình phân loại ảnh khi dữ liệu gán nhãn không hoàn hảo.
+
+3. Đối tượng và phạm vi nghiên cứu
+Đối tượng: Bài toán phân loại ảnh bằng học sâu khi nhãn huấn luyện bị nhiễu, kỹ thuật lọc dữ liệu huấn luyện dựa trên dự đoán theo thời gian.
+Phạm vi nghiên cứu: Giới hạn trong phân loại ảnh, nghiên cứu trên các bộ dữ liệu chuẩn và kịch bản nhãn nhiễu phổ biến để đánh giá có kiểm soát, không xét các bài toán phát hiện đối tượng và phân đoạn ảnh trong phạm vi luận văn.
+
+4. Phương pháp nghiên cứu
+Tìm hiểu các hướng tiếp cận học với nhãn nhiễu trong phân loại ảnh, xác định ưu điểm và hạn chế.
+Phân tích khả năng khai thác dự đoán theo thời gian để đánh giá độ tin cậy của nhãn.
+Đề xuất khung kỹ thuật lọc nhãn nhiễu dựa trên dự đoán theo thời gian và các tiêu chí lựa chọn dữ liệu.
+Xây dựng chương trình thực nghiệm, thiết lập đánh giá và so sánh với các cách tiếp cận liên quan.
+Phân tích kết quả, rút ra nhận xét và đề xuất hướng phát triển.
+
+
+II. NỘI DUNG
+Chương 1: PHÂN LOẠI ẢNH VÀ BÀI TOÁN NHÃN NHIỄU
+Giới thiệu chương: Trình bày tổng quan về phân loại ảnh bằng học sâu, vai trò của dữ liệu gán nhãn và các vấn đề phát sinh khi nhãn không hoàn hảo. Tổng quan các dạng nhãn nhiễu, ảnh hưởng tới huấn luyện, và hệ thống hóa các nhóm phương pháp tiêu biểu trong học với nhãn nhiễu.
+
+Nội dung chương 1 sẽ bố cục theo các mục sau:
+
+Tổng quan bài toán phân loại ảnh và mô hình học sâu.
+Dữ liệu gán nhãn và các vấn đề trong thực tế.
+Nhãn nhiễu: khái niệm, phân loại và mô hình nhiễu.
+Ảnh hưởng của nhãn nhiễu tới quá trình huấn luyện và tổng quát hóa.
+Tổng quan các nhóm phương pháp học với nhãn nhiễu.
+Kết luận chương.
+
+Chương 2: LỌC NHÃN NHIỄU DỰA TRÊN DỰ ĐOÁN THEO THỜI GIAN
+Giới thiệu chương: Trình bày kỹ thuật đề xuất theo hướng khai thác dự đoán theo thời gian để đánh giá độ tin cậy nhãn và lựa chọn dữ liệu huấn luyện hiệu dụng. Trình bày các tín hiệu phản ánh tính nhất quán theo thời gian, các tiêu chí lựa chọn dữ liệu, cơ chế đảm bảo ổn định/cân bằng dữ liệu và khả năng mở rộng khi thay đổi chiến lược lọc.
+Nội dung chương 2 sẽ bố cục theo các mục sau:
+ Mô hình bài toán và các ký hiệu sử dụng.
+ Dự đoán theo thời gian trong quá trình huấn luyện.
+ Tín hiệu độ tin cậy nhãn từ tính ổn định và xu hướng dự đoán.
+ Chiến lược lọc dữ liệu huấn luyện dựa trên dự đoán theo thời gian.
+ Cơ chế đảm bảo ổn định và cân bằng dữ liệu.
+ Tổ chức lưu và quản lý kết quả phục vụ phân tích.
+ Kết luận chương.
+
+Chương 3: THỬ NGHIỆM VÀ ĐÁNH GIÁ
+
+Giới thiệu chương: Thiết lập môi trường thử nghiệm và dữ liệu đánh giá. Tiến hành thực nghiệm để kiểm chứng hiệu quả của kỹ thuật lọc dựa trên dự đoán theo thời gian, đánh giá theo các chỉ số phù hợp và so sánh với các cách tiếp cận liên quan. Phân tích kết quả, thảo luận ưu điểm, hạn chế và các yếu tố ảnh hưởng.
+
+Nội dung chương 3 sẽ bố cục theo các mục sau:
+
+Tập dữ liệu thử nghiệm và thiết lập đánh giá.
+Thiết lập mô hình và cấu hình huấn luyện.
+Chỉ số đánh giá và phương pháp đo lường.
+Kết quả thực nghiệm và so sánh với baseline.
+Phân tích và thảo luận kết quả.
+Nhận xét về độ phức tạp và khả năng áp dụng.
+Kết luận chương.
+
+III. KẾT LUẬN
+
+Luận văn tập trung nghiên cứu kỹ thuật lọc nhãn nhiễu dựa trên dự đoán theo thời gian trong phân loại ảnh nhằm cải thiện hiệu quả huấn luyện mô hình học sâu khi dữ liệu gán nhãn không hoàn hảo. Trên cơ sở kết quả thực nghiệm và phân tích, luận văn đưa ra nhận xét về ưu điểm và hạn chế của kỹ thuật, đồng thời đề xuất khuyến nghị và định hướng phát triển tiếp theo nhằm nâng cao hiệu quả và khả năng áp dụng trong thực tiễn.
+IV. DANH MỤC CÁC TÀI LIỆU THAM KHẢO
+
+[1] Han, B., Yao, Q., Yu, X., et al. Co-teaching: Robust Training of Deep Neural Networks with Extremely Noisy Labels. NeurIPS, 2018.
+[2] He, K., Zhang, X., Ren, S., Sun, J. Deep Residual Learning for Image Recognition. CVPR, 2016.
+[3] Krizhevsky, A. Learning Multiple Layers of Features from Tiny Images. Technical Report, University of Toronto, 2009.
+[4] Laine, S., Aila, T. Temporal Ensembling for Semi-Supervised Learning. ICLR, 2017.
+[5] Li, J., Socher, R., Hoi, S. C. H. DivideMix: Learning with Noisy Labels as Semi-supervised Learning. ICLR, 2020.
+[6] Lin, T.-Y., Maire, M., Belongie, S., et al. Microsoft COCO: Common Objects in Context. ECCV, 2014.
+[7] Northcutt, C. G., Athalye, A., Mueller, J. Pervasive Label Errors in Test Sets Destabilize Machine Learning Benchmarks. , 2021.
+[8] Patrini, G., Rozza, A., Menon, A. K., Nock, R., Qu, L. Making Deep Neural Networks Robust to Label Noise: a Loss Correction Approach. CVPR, 2017.
+[9] Reed, S., Lee, H., Anguelov, D., Szegedy, C., Erhan, D., Rabinovich, A. Training Deep Neural Networks on Noisy Labels with Bootstrapping. ICLR Workshop, 2015.
+[10] Song, H., Kim, M., Park, D., et al. Learning from Noisy Labels with Deep Neural Networks: A Survey. IEEE TPAMI, 2022.
+[11] Wang, Y., Ma, X., Chen, Z., et al. Symmetric Cross Entropy for Robust Learning with Noisy Labels. ICCV, 2019.
+[12] Zhang, Z., Sabuncu, M. Generalized Cross Entropy Loss for Training Deep Neural Networks with Noisy Labels. NeurIPS, 2018.
+
+
+Tôi thấy bạn phân tích có các ý đúng:
+- I.1 Lý do chọn đề tài: bỏ “ảnh là trung tâm”, nhưng vẫn có thể lấy ảnh làm case study
+- Chương 3: điền dataset, nhưng đừng tự trói
+
+Thầy yêu cầu “có tập dữ liệu cụ thể thì điền”. Bạn điền như sau là đẹp và không khóa:
+
+CIFAR-10 (chính)
+
+CIFAR-100 (mở rộng nếu đủ thời gian)
+
+mô tả nhiễu:  Tôi thực nghiệm trên nhiễu đối xứng
+
+Nhưng ở mục SELF thì tôi thấy chưa ổn lắm : vì trong paper của SELF có phần thuật toán 1 trong này mô tả chi tiết EMA predict theo iteration. và tôi cũng tham khảo từ ý tưởng này để triển khai thuật toán và thực nghiệm
+Nhưng thông tin và bạn lấy, thu thập từ nguồn tin cậy thì SELF là progressive filtering theo epoch + dùng phần bị lọc trong nhánh semi-supervised/unsupervised). SELF bản gốc mô tả rõ: lọc dựa trên running averages of predictions ở các epoch và loại khỏi supervised loss; đồng thời có cách tận dụng mẫu bị lọc bằng semi-supervised learning.
+
+Hãy phân tích chi tiết lại, lập luận dựa trên kiến thức chuyên sâu và nguồn tin cậy không bị bias hay bịa thông tin.
+
+
+bản đề cương mới nhất của tôi tới thời điểm hiện tại là:
+
+I. MỞ ĐẦU
+1. Lý do chọn đề tài
+Phân loại ảnh là một bài toán nền tảng trong thị giác máy tính và có mặt trong nhiều ứng dụng thực tiễn như giám sát, y tế, sản xuất công nghiệp, thương mại điện tử và tìm kiếm đa phương tiện. Cùng với sự phát triển của học sâu, hiệu quả phân loại ảnh được cải thiện đáng kể khi có dữ liệu huấn luyện gán nhãn quy mô lớn. Thực tế cho thấy quy mô dữ liệu trong nghiên cứu và triển khai ngày càng lớn: ImageNet thống kê hơn 14 triệu ảnh, và riêng tập con ILSVRC-2012 được sử dụng rộng rãi cho phân loại gồm khoảng 1,2 triệu ảnh huấn luyện với 1.000 lớp. Trong bài toán nhận dạng đối tượng, MS COCO có quy mô 328.000 ảnh với khoảng 2,5 triệu đối tượng được gán nhãn theo từng thể hiện.
+
+Tuy nhiên, khi dữ liệu tăng nhanh về quy mô, việc đảm bảo nhãn “sạch” tuyệt đối trở nên khó khăn. Trong thực tế, nhãn có thể bị sai do sai sót của người gán nhãn, khác biệt tiêu chí giữa nhiều nhóm gán nhãn, sự mơ hồ của ảnh (chất lượng thấp, che khuất, nhiều đối tượng), hoặc do dữ liệu được thu thập từ nhiều nguồn và quy trình khác nhau. Đặc biệt, đối với dữ liệu lớn, việc gán nhãn thường phải dựa vào cộng đồng, crowdsourcing để giảm chi phí và thời gian, đây là điều kiện thuận lợi để xuất hiện nhãn nhiễu. Ngay cả với các bộ dữ liệu chuẩn, nhãn sai vẫn có thể tồn tại: một nghiên cứu về “label errors” trên các benchmark phổ biến ước lượng tối thiểu khoảng 6% mẫu trong tập validation của ImageNet có khả năng bị gán nhãn sai.
+
+Trong điều kiện nhãn nhiễu, mô hình học sâu không chỉ suy giảm hiệu năng mà còn đối mặt với rủi ro “học lệch”: mô hình có thể học nhanh các mẫu dễ ở giai đoạn đầu, nhưng khi huấn luyện kéo dài có thể dần ghi nhớ các nhãn sai, làm giảm khả năng tổng quát hóa. Việc làm sạch nhãn thủ công trên quy mô lớn thường tốn kém, khó duy trì tính nhất quán giữa nhiều người gán nhãn và không thuận lợi trong bối cảnh dữ liệu liên tục thay đổi. Do đó, nghiên cứu các kỹ thuật giúp mô hình học tốt hơn khi nhãn không hoàn hảo là một vấn đề có tính cấp thiết và có giá trị ứng dụng.
+Trong các hướng tiếp cận hiện nay, một hướng có tính khả thi cao là khai thác tín hiệu từ chính quá trình huấn luyện để ước lượng mức độ tin cậy của nhãn. Thay vì chỉ nhìn dự đoán của mô hình tại một thời điểm, có thể quan sát dự đoán của mô hình theo thời gian huấn luyện: với những mẫu có nhãn đáng tin cậy, dự đoán thường sớm ổn định và có xu hướng nhất quán. Ngược lại, với những mẫu nghi nhiễu hoặc mơ hồ, dự đoán có thể dao động hoặc mâu thuẫn theo thời gian. Nếu tận dụng tốt tín hiệu này, có thể lựa chọn được tập dữ liệu huấn luyện hiệu dụng hơn, giảm ảnh hưởng của nhãn sai mà không phụ thuộc quá nhiều vào việc làm sạch thủ công.
+
+Vì vậy, đề tài “Kỹ thuật lọc nhãn nhiễu dựa trên dự đoán theo thời gian trong phân loại ảnh” được lựa chọn nhằm xây dựng và đánh giá một hướng tiếp cận vừa có cơ sở lập luận rõ ràng, vừa có tính khả thi trong thực tế: tận dụng thông tin sẵn có trong quá trình huấn luyện để sàng lọc dữ liệu, từng bước cải thiện chất lượng huấn luyện mô hình trong điều kiện nhãn không hoàn hảo.
+
+2. Mục đích nghiên cứu
+Mục đích của luận văn là nghiên cứu và xây dựng một kỹ thuật lọc nhãn nhiễu cho bài toán phân loại ảnh dựa trên dự đoán của mô hình theo thời gian huấn luyện, nhằm nâng cao hiệu năng và tăng độ tin cậy của mô hình học sâu trong điều kiện dữ liệu huấn luyện có nhãn không hoàn hảo.
+
+Về mặt trực giác, một mẫu dữ liệu có nhãn đáng tin cậy thường được mô hình học đúng sớm và dự đoán có xu hướng ổn định hơn khi quá trình huấn luyện tiếp diễn. Ngược lại, với các mẫu bị gán nhãn sai hoặc mơ hồ, dự đoán của mô hình có thể dao động, thay đổi hoặc mâu thuẫn theo thời gian. Nếu chỉ dựa vào dự đoán tại một thời điểm để quyết định giữ hoặc loại mẫu, tín hiệu có thể thiếu ổn định do ảnh hưởng của ngẫu nhiên huấn luyện, tăng cường dữ liệu và nhiễu tối ưu. Do đó, việc khai thác dự đoán theo thời gian như một “bằng chứng tích lũy” có thể giúp đánh giá độ tin cậy nhãn tốt hơn, từ đó lựa chọn được dữ liệu huấn luyện hiệu dụng và giảm ảnh hưởng của nhãn sai mà không cần phụ thuộc nhiều vào làm sạch thủ công.
+
+Trên cơ sở đó, luận văn hướng tới các kết quả cần đạt được sau đây:
+Hệ thống hóa cơ sở lý thuyết về học với nhãn nhiễu trong phân loại ảnh, tổng quan các nhóm phương pháp tiêu biểu, phân tích ưu điểm, hạn chế và các vấn đề còn tồn tại.
+Đề xuất một khung kỹ thuật lọc nhãn nhiễu dựa trên dự đoán theo thời gian, trong đó làm rõ cách hình thành chuỗi dự đoán trong quá trình huấn luyện và xây dựng tiêu chí đánh giá độ tin cậy nhãn từ tín hiệu theo thời gian.
+Xây dựng cơ chế lựa chọn dữ liệu huấn luyện hiệu dụng dựa trên tiêu chí độ tin cậy, đồng thời đưa ra nguyên tắc đảm bảo tính ổn định và hạn chế mất cân bằng dữ liệu khi tiến hành lọc.
+Thiết lập quy trình đánh giá và kiểm chứng bằng thực nghiệm. So sánh kết quả của kỹ thuật đề xuất với cách huấn luyện thông thường và một số hướng tiếp cận liên quan, phân tích, thảo luận và rút ra nhận xét.
+Đề xuất khuyến nghị và định hướng phát triển tiếp theo nhằm nâng cao khả năng áp dụng của kỹ thuật trong các kịch bản nhãn không hoàn hảo.
+
+Về mặt lý luận, luận văn kỳ vọng làm rõ vai trò của tín hiệu dự đoán theo thời gian trong việc phản ánh độ tin cậy nhãn và góp phần hệ thống hóa cách khai thác tín hiệu này cho bài toán lọc nhãn nhiễu. Về mặt thực tiễn, luận văn hướng tới một khung kỹ thuật có thể triển khai và mở rộng, hỗ trợ cải thiện hiệu quả huấn luyện mô hình phân loại ảnh khi dữ liệu gán nhãn không hoàn hảo.
+
+3. Đối tượng và phạm vi nghiên cứu
+Đối tượng: Bài toán phân loại ảnh bằng học sâu khi nhãn huấn luyện bị nhiễu, kỹ thuật lọc dữ liệu huấn luyện dựa trên dự đoán theo thời gian.
+Phạm vi nghiên cứu: Giới hạn trong phân loại ảnh, nghiên cứu trên các bộ dữ liệu chuẩn và kịch bản nhãn nhiễu phổ biến để đánh giá có kiểm soát, không xét các bài toán phát hiện đối tượng và phân đoạn ảnh trong phạm vi luận văn.
+
+4. Phương pháp nghiên cứu
+Tìm hiểu các hướng tiếp cận học với nhãn nhiễu trong phân loại ảnh, xác định ưu điểm và hạn chế.
+Phân tích khả năng khai thác dự đoán theo thời gian để đánh giá độ tin cậy của nhãn.
+Đề xuất khung kỹ thuật lọc nhãn nhiễu dựa trên dự đoán theo thời gian và các tiêu chí lựa chọn dữ liệu.
+Xây dựng chương trình thực nghiệm, thiết lập đánh giá và so sánh với các cách tiếp cận liên quan.
+Phân tích kết quả, rút ra nhận xét và đề xuất hướng phát triển.
+
+
+II. NỘI DUNG
+Chương 1: PHÂN LOẠI ẢNH VÀ BÀI TOÁN NHÃN NHIỄU
+Giới thiệu chương: Trình bày tổng quan về phân loại ảnh bằng học sâu, vai trò của dữ liệu gán nhãn và các vấn đề phát sinh khi nhãn không hoàn hảo. Tổng quan các dạng nhãn nhiễu, ảnh hưởng tới huấn luyện, và hệ thống hóa các nhóm phương pháp tiêu biểu trong học với nhãn nhiễu.
+
+Nội dung chương 1 sẽ bố cục theo các mục sau:
+
+Tổng quan bài toán phân loại ảnh và mô hình học sâu.
+Dữ liệu gán nhãn và các vấn đề trong thực tế.
+Nhãn nhiễu: khái niệm, phân loại và mô hình nhiễu.
+Ảnh hưởng của nhãn nhiễu tới quá trình huấn luyện và tổng quát hóa.
+Tổng quan các nhóm phương pháp học với nhãn nhiễu.
+Kết luận chương.
+
+Chương 2: LỌC NHÃN NHIỄU DỰA TRÊN DỰ ĐOÁN THEO THỜI GIAN
+Giới thiệu chương: Trình bày kỹ thuật đề xuất theo hướng khai thác dự đoán theo thời gian để đánh giá độ tin cậy nhãn và lựa chọn dữ liệu huấn luyện hiệu dụng. Trình bày các tín hiệu phản ánh tính nhất quán theo thời gian, các tiêu chí lựa chọn dữ liệu, cơ chế đảm bảo ổn định/cân bằng dữ liệu và khả năng mở rộng khi thay đổi chiến lược lọc.
+Nội dung chương 2 sẽ bố cục theo các mục sau:
+ Mô hình bài toán và các ký hiệu sử dụng.
+ Dự đoán theo thời gian trong quá trình huấn luyện.
+ Tín hiệu độ tin cậy nhãn từ tính ổn định và xu hướng dự đoán.
+ Chiến lược lọc dữ liệu huấn luyện dựa trên dự đoán theo thời gian.
+ Cơ chế đảm bảo ổn định và cân bằng dữ liệu.
+ Tổ chức lưu và quản lý kết quả phục vụ phân tích.
+ Kết luận chương.
+
+Chương 3: THỬ NGHIỆM VÀ ĐÁNH GIÁ
+
+Giới thiệu chương: Thiết lập môi trường thử nghiệm và dữ liệu đánh giá. Tiến hành thực nghiệm để kiểm chứng hiệu quả của kỹ thuật lọc dựa trên dự đoán theo thời gian, đánh giá theo các chỉ số phù hợp và so sánh với các cách tiếp cận liên quan. Phân tích kết quả, thảo luận ưu điểm, hạn chế và các yếu tố ảnh hưởng.
+
+Nội dung chương 3 sẽ bố cục theo các mục sau:
+
+Tập dữ liệu thử nghiệm và thiết lập đánh giá.
+Thiết lập mô hình và cấu hình huấn luyện.
+Chỉ số đánh giá và phương pháp đo lường.
+Kết quả thực nghiệm và so sánh với baseline.
+Phân tích và thảo luận kết quả.
+Nhận xét về độ phức tạp và khả năng áp dụng.
+Kết luận chương.
+
+III. KẾT LUẬN
+
+Luận văn tập trung nghiên cứu kỹ thuật lọc nhãn nhiễu dựa trên dự đoán theo thời gian trong phân loại ảnh nhằm cải thiện hiệu quả huấn luyện mô hình học sâu khi dữ liệu gán nhãn không hoàn hảo. Trên cơ sở kết quả thực nghiệm và phân tích, luận văn đưa ra nhận xét về ưu điểm và hạn chế của kỹ thuật, đồng thời đề xuất khuyến nghị và định hướng phát triển tiếp theo nhằm nâng cao hiệu quả và khả năng áp dụng trong thực tiễn.
+IV. DANH MỤC CÁC TÀI LIỆU THAM KHẢO
+
+[1] Han, B., Yao, Q., Yu, X., et al. Co-teaching: Robust Training of Deep Neural Networks with Extremely Noisy Labels. NeurIPS, 2018.
+[2] He, K., Zhang, X., Ren, S., Sun, J. Deep Residual Learning for Image Recognition. CVPR, 2016.
+[3] Krizhevsky, A. Learning Multiple Layers of Features from Tiny Images. Technical Report, University of Toronto, 2009.
+[4] Laine, S., Aila, T. Temporal Ensembling for Semi-Supervised Learning. ICLR, 2017.
+[5] Li, J., Socher, R., Hoi, S. C. H. DivideMix: Learning with Noisy Labels as Semi-supervised Learning. ICLR, 2020.
+[6] Lin, T.-Y., Maire, M., Belongie, S., et al. Microsoft COCO: Common Objects in Context. ECCV, 2014.
+[7] Northcutt, C. G., Athalye, A., Mueller, J. Pervasive Label Errors in Test Sets Destabilize Machine Learning Benchmarks. , 2021.
+[8] Patrini, G., Rozza, A., Menon, A. K., Nock, R., Qu, L. Making Deep Neural Networks Robust to Label Noise: a Loss Correction Approach. CVPR, 2017.
+[9] Reed, S., Lee, H., Anguelov, D., Szegedy, C., Erhan, D., Rabinovich, A. Training Deep Neural Networks on Noisy Labels with Bootstrapping. ICLR Workshop, 2015.
+[10] Song, H., Kim, M., Park, D., et al. Learning from Noisy Labels with Deep Neural Networks: A Survey. IEEE TPAMI, 2022.
+[11] Wang, Y., Ma, X., Chen, Z., et al. Symmetric Cross Entropy for Robust Learning with Noisy Labels. ICCV, 2019.
+[12] Zhang, Z., Sabuncu, M. Generalized Cross Entropy Loss for Training Deep Neural Networks with Noisy Labels. NeurIPS, 2018.
+
+Hãy chỉnh sửa toàn bộ đề cương bản của tôi theo những điểm cần cải thiện bạn đã phân tích và liệt kê ra
+
+
+1. Lý do chọn đề tài ở mục này thiếu phần thông tin thực tế về nhãn nhiễu dựa trên nguồn tin cậy. và nên lấy đuocwj thông tin nhiễu trên nhiều bài toán khác nhau ngoài ảnh càng tốt.
+
+ở đoạn Trong các hướng tiếp cận hiện nay, một hướng có tính khả thi cao là khai thác tín hiệu từ chính quá trình huấn luyện để đánh giá mức độ tin cậy của nhãn, từ đó loại bỏ ảnh hưởng của các mẫu/nhãn nghi nhiễu và lựa chọn dữ liệu huấn luyện hiệu dụng hơn. Trên thực tế, dự đoán của mô hình đối với các mẫu đáng tin cậy thường có xu hướng nhất quán hơn trong tiến trình huấn luyện, trong khi các mẫu nghi nhiễu có thể biểu hiện sự thiếu nhất quán trong dự đoán. Nếu khai thác đúng tín hiệu này, có thể giảm tác động của nhãn sai mà không phụ thuộc quá nhiều vào việc làm sạch thủ công.
+
+Trong các hướng tiếp cận loại nhãn nhiễu, nhóm phương pháp khai thác self-ensembling dự đoán của mô hình là hướng tiêu biểu; công trình SELF được lựa chọn làm công trình tham chiếu để định vị hướng nghiên cứu và xây dựng quy trình đánh giá.
+
+Tôi đọc vào thấy rời rạc và không liên kết mặc dù 2 đoạn này đang cùng 1 ý tưởng. Hãy tham khảo chi tiết thêm ở bài viết mẫu của Khôi để học cách viết 
+
+2. tài liệu tham khảo có các tài liệu gần đây hơn không ?
+3. trong bài viết tôi thấy hay có các ký tự mà không phù hợp như: ; hoặc / 
+4. ở đề mục Chương 2 thì có các từ ít dùng nhưng xuất hiện trong đê cương: hiệu dụng, lưu vết
+    ở trong đề mục thì đi vào chi tiết và có đủ để chia thành các đề mục không? hãy phân tích kỹ phần này 
+5. các chỉ mục 1.1 ,1.2 , 1.3 ... nên để tôi dễ copy thành đề mục trong word chứ không phải text như hiện tại
+
+Ngoài ra hãy review khắt khe, phân tích, lập luận và tham khảo bài mẫu của Khôi để hoàn thiện 
+
+
+
+
+
+Chương 1: CƠ SỞ LÝ THUYẾT VỀ HỌC CÓ GIÁM SÁT VÀ NHÃN NHIỄU
+
+Giới thiệu chương: Trình bày các khái niệm nền tảng của học có giám sát, vai trò của dữ liệu gán nhãn, khái niệm nhãn nhiễu và tác động của nhãn nhiễu đến quá trình huấn luyện. Tổng quan các hướng tiếp cận tiêu biểu và các vấn đề còn tồn tại.
+
+    Tổng quan học có giám sát và các bài toán điển hình.
+    Quy trình gán nhãn dữ liệu và các nguồn phát sinh sai lệch nhãn.
+    Nhãn nhiễu: khái niệm, phân loại và các mô hình nhiễu thường gặp.
+    Ảnh hưởng của nhãn nhiễu đến tối ưu và khả năng tổng quát hóa.
+    Tổng quan các nhóm phương pháp học với nhãn nhiễu.
+    Kết luận chương.
+
+Chương 2: PHƯƠNG PHÁP LOẠI NHÃN NHIỄU DỰA TRÊN SELF-ENSEMBLING DỰ ĐOÁN
+
+Giới thiệu chương: Trình bày khung phương pháp đề xuất theo hướng khai thác self-ensembling dự đoán để ước lượng độ tin cậy nhãn và lựa chọn dữ liệu huấn luyện phù hợp hơn. Trình bày tiêu chí lựa chọn, cơ chế đảm bảo ổn định và khả năng mở rộng khi thay đổi chiến lược.
+
+    Phát biểu bài toán và các ký hiệu sử dụng.
+    Self-ensembling dự đoán trong tiến trình huấn luyện và ý nghĩa đối với độ tin cậy nhãn.
+    Chiến lược lựa chọn dữ liệu và xử lý mẫu nghi nhiễu.
+    Cơ chế đảm bảo ổn định và hạn chế mất cân bằng dữ liệu.
+    Tổ chức theo dõi và ghi nhận kết quả phục vụ phân tích và báo cáo.
+    Kết luận chương.
+
+Chương 3: THỬ NGHIỆM VÀ ĐÁNH GIÁ
+
+Giới thiệu chương: Thiết lập dữ liệu, môi trường và quy trình đánh giá. Tiến hành thực nghiệm để kiểm chứng hiệu quả của phương pháp, so sánh với huấn luyện thông thường và thảo luận kết quả.
+
+
+    Tập dữ liệu và thiết lập nhiễu cho thực nghiệm.
+        Thực nghiệm dự kiến trên CIFAR-10; mở rộng CIFAR-100 nếu điều kiện cho phép; nhãn nhiễu được thiết lập theo mô hình nhiễu đối xứng ở các mức khác nhau.
+    Mô hình và cấu hình huấn luyện.
+    Chỉ số đánh giá và phương pháp đo lường.
+    Kết quả thực nghiệm và so sánh với baseline.
+    Phân tích và thảo luận kết quả.
+    Nhận xét về độ phức tạp và khả năng áp dụng.
+    Kết luận chương.
+
+Hãy đưa ra phần tài liệu tham khảo để tôi copy tránh có các text lạ hoặc link đường dẫn và sắp xếp theo chuẩn ABC
+
+[1] Frenay, B., Verleysen, M. (2014), "Classification in the Presence of Label Noise: A Survey", IEEE Transactions on Neural Networks and Learning Systems, 25(5), 845-869.
+[2] Han, B., Yao, Q., Yu, X., et al. (2018), "Co-teaching: Robust Training of Deep Neural Networks with Extremely Noisy Labels", Advances in Neural Information Processing Systems (NeurIPS), 2018.
+[3] He, K., Zhang, X., Ren, S., Sun, J. (2016), "Deep Residual Learning for Image Recognition", Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition (CVPR), 2016.
+[4] Krizhevsky, A. (2009), "Learning Multiple Layers of Features from Tiny Images", Technical Report, University of Toronto, 2009.
+[5] Laine, S., Aila, T. (2017), "Temporal Ensembling for Semi-Supervised Learning", Proceedings of the International Conference on Learning Representations (ICLR), 2017.
+[6] Li, J., Socher, R., Hoi, S. C. H. (2020), "DivideMix: Learning with Noisy Labels as Semi-supervised Learning", Proceedings of the International Conference on Learning Representations (ICLR), 2020.
+[7] Li, M., Zhu, C. (2024), "Noisy Label Processing for Classification: A Survey", arXiv:2404.04159.
+[8] Nguyen, D. T., Lee, K., Ma, X., Zhou, J., Wang, J., Jia, X., Li, B., Liu, T. (2020), "SELF: Learning to Filter Noisy Labels with Self-Ensembling", Proceedings of the International Conference on Learning Representations (ICLR), 2020.
+[9] Northcutt, C. G., Athalye, A., Mueller, J. (2021), "Pervasive Label Errors in Test Sets Destabilize Machine Learning Benchmarks", NeurIPS Track on Datasets and Benchmarks, 2021.
+[10] Patrini, G., Rozza, A., Menon, A. K., Nock, R., Qu, L. (2017), "Making Deep Neural Networks Robust to Label Noise: A Loss Correction Approach", Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition (CVPR), 2017.
+[11] Reed, S., Lee, H., Anguelov, D., Szegedy, C., Erhan, D., Rabinovich, A. (2015), "Training Deep Neural Networks on Noisy Labels with Bootstrapping", International Conference on Learning Representations (ICLR) Workshop, 2015.
+[12] Song, H., Kim, M., Park, D., Shin, Y., Lee, J. G. (2022), "Learning from Noisy Labels with Deep Neural Networks: A Survey", IEEE Transactions on Neural Networks and Learning Systems, 2022.
+[13] van Rooyen, B., Williamson, R. C. (2018), "A Theory of Learning with Corrupted Labels", Journal of Machine Learning Research, 18(228), 1-50.
+[14] Wang, Y., Ma, X., Chen, Z., et al. (2019), "Symmetric Cross Entropy for Robust Learning with Noisy Labels", Proceedings of the IEEE International Conference on Computer Vision (ICCV), 2019.
+[15] Zhang, H., Zhang, Y., Li, J., Liu, J., Ji, L. (2025), "A Survey on Learning with Noisy Labels in Natural Language Processing: How to Train Models with Label Noise", Engineering Applications of Artificial Intelligence, 146, 110157.
+[16] Zhang, Z., Sabuncu, M. R. (2018), "Generalized Cross Entropy Loss for Training Deep Neural Networks with Noisy Labels", Advances in Neural Information Processing Systems (NeurIPS), 2018.
+
+
+
+
+I. MỞ ĐẦU
+1. Lý do chọn đề tài
+Học có giám sát là nền tảng của nhiều hệ thống ứng dụng trong thực tế như nhận dạng ảnh, xử lý ngôn ngữ tự nhiên, phân loại tín hiệu, và các bài toán dự báo trong công nghiệp. Hiệu quả của mô hình học có giám sát phụ thuộc trực tiếp vào chất lượng nhãn trong dữ liệu huấn luyện. Tuy nhiên, trong các kịch bản dữ liệu lớn hoặc dữ liệu thu thập từ nhiều nguồn, việc đảm bảo nhãn “sạch” tuyệt đối thường không khả thi do sai sót của người gán nhãn, khác biệt tiêu chí giữa các nhóm gán nhãn, và quy trình gán nhãn bán tự động hoặc dựa vào cộng đồng.
+Một vấn đề đặt ra là nhãn sai không chỉ xuất hiện trong dữ liệu “thực tế”, mà còn tồn tại ngay trên các bộ dữ liệu benchmark được sử dụng rộng rãi để huấn luyện và đánh giá mô hình. Nghiên cứu về lỗi nhãn trên các benchmark phổ biến cho thấy lỗi nhãn xuất hiện trên nhiều tập dữ liệu thuộc các lĩnh vực khác nhau (thị giác máy tính, ngôn ngữ và âm thanh), với mức lỗi đáng kể ngay cả ở tập kiểm định, riêng ImageNet được ước lượng có tỷ lệ lỗi tối thiểu khoảng 6% trên tập validation.
+Trong điều kiện nhãn nhiễu, mô hình học sâu có thể suy giảm hiệu năng và đối mặt với nguy cơ học lệch khi quá trình huấn luyện kéo dài. Việc làm sạch nhãn thủ công trên quy mô lớn thường tốn kém, khó duy trì tính nhất quán và không thuận lợi khi dữ liệu liên tục thay đổi. Vì vậy, nghiên cứu các phương pháp loại bỏ ảnh hưởng của nhãn nhiễu trong học có giám sát là một hướng có ý nghĩa khoa học và giá trị ứng dụng.
+Trong các hướng tiếp cận loại nhãn nhiễu, nhóm phương pháp khai thác self-ensembling dự đoán của mô hình là một hướng tiêu biểu. Công trình SELF được lựa chọn làm công trình tham chiếu tiêu biểu để định vị hướng nghiên cứu và xây dựng quy trình đánh giá.
+Luận văn lựa chọn tiếp cận dựa trên tích lũy dự đoán trong tiến trình huấn luyện như một tín hiệu để ước lượng độ tin cậy của nhãn và lựa chọn dữ liệu huấn luyện phù hợp hơn. Phần thực nghiệm sử dụng phân loại ảnh làm bài toán nghiên cứu tình huống để kiểm chứng và phân tích.
+
+2. Mục đích nghiên cứu
+Bằng trực giác, một mẫu dữ liệu có nhãn đáng tin cậy thường được mô hình học đúng sớm hơn và dự đoán có xu hướng ổn định hơn khi quá trình huấn luyện tiếp diễn. Ngược lại, với các mẫu có nhãn sai hoặc mơ hồ, dự đoán có thể dao động và thiếu nhất quán. Nếu chỉ dựa vào dự đoán tại một thời điểm đơn lẻ để quyết định giữ hay loại mẫu, kết luận có thể thiếu ổn định do ảnh hưởng của ngẫu nhiên huấn luyện và cơ chế tối ưu.
+Mục đích của luận văn là nghiên cứu và xây dựng một phương pháp loại bỏ ảnh hưởng của nhãn nhiễu trong học có giám sát dựa trên tín hiệu dự đoán của mô hình trong quá trình huấn luyện, nhằm nâng cao độ tin cậy và hiệu năng của mô hình trong điều kiện nhãn không hoàn hảo.
+
+Các mục tiêu cụ thể của luận văn gồm:
+Hệ thống hóa cơ sở lý thuyết và tổng quan các hướng tiếp cận tiêu biểu trong học có giám sát với nhãn nhiễu.
+Xây dựng khung phương pháp loại nhãn nhiễu dựa trên tín hiệu dự đoán tích lũy trong tiến trình huấn luyện, làm rõ tiêu chí đánh giá độ tin cậy của nhãn và nguyên tắc lựa chọn dữ liệu.
+Đề xuất cơ chế đảm bảo tính ổn định và hạn chế mất cân bằng dữ liệu trong quá trình loại nhãn nhiễu.
+Thiết lập quy trình đánh giá bằng thực nghiệm, so sánh với huấn luyện thông thường và một số hướng tiếp cận liên quan, phân tích và thảo luận kết quả.
+Đề xuất khuyến nghị và định hướng phát triển tiếp theo nhằm nâng cao khả năng áp dụng của phương pháp trong thực tiễn.
+
+3. Đối tượng và phạm vi nghiên cứu
+Đối tượng nghiên cứu: Bài toán học có giám sát trong điều kiện nhãn huấn luyện bị nhiễu, và các phương pháp loại bỏ ảnh hưởng của nhãn nhiễu thông qua lựa chọn dữ liệu và xử lý dựa trên dự đoán của mô hình.
+Phạm vi nghiên cứu: Luận văn tập trung vào kịch bản nhãn nhiễu phổ biến trong học có giám sát. Phần thực nghiệm sử dụng bài toán phân loại ảnh làm nghiên cứu tình huống để đánh giá có kiểm soát, không mở rộng sang các bài toán có cấu trúc phức tạp hơn (ví dụ phát hiện đối tượng, phân đoạn) trong giai đoạn này.
+
+4. Phương pháp nghiên cứu
+Khảo sát, tổng hợp và phân loại các nhóm phương pháp học với nhãn nhiễu, phân tích ưu điểm, hạn chế và điều kiện áp dụng.
+Xây dựng khung phương pháp loại nhãn nhiễu dựa trên tín hiệu dự đoán của mô hình trong tiến trình huấn luyện, xác định tiêu chí lựa chọn dữ liệu và cơ chế ổn định hóa.
+Thiết kế thực nghiệm kiểm chứng và đánh giá theo các thước đo phù hợp, so sánh với huấn luyện thông thường và các hướng liên quan.
+Phân tích, thảo luận kết quả, rút ra nhận xét và đề xuất hướng phát triển.
+
+
+II. NỘI DUNG
+Chương 1: CƠ SỞ LÝ THUYẾT VỀ HỌC CÓ GIÁM SÁT VÀ NHÃN NHIỄU
+
+Giới thiệu chương: Trình bày các khái niệm nền tảng của học có giám sát, vai trò của dữ liệu gán nhãn, khái niệm nhãn nhiễu và tác động của nhãn nhiễu đến quá trình huấn luyện. Tổng quan các hướng tiếp cận tiêu biểu và các vấn đề còn tồn tại.
+
+Nội dung chương 1 sẽ bố cục theo các mục sau:
+
+    Tổng quan học có giám sát và các bài toán điển hình.
+    Quy trình gán nhãn dữ liệu và các nguồn phát sinh sai lệch nhãn.
+    Nhãn nhiễu: khái niệm, phân loại và các mô hình nhiễu thường gặp.
+    Ảnh hưởng của nhãn nhiễu đến tối ưu và khả năng tổng quát hóa.
+    Tổng quan các nhóm phương pháp học với nhãn nhiễu.
+    Kết luận chương.
+
+Chương 2: PHƯƠNG PHÁP LOẠI NHÃN NHIỄU DỰA TRÊN  SELF-ENSEMBLING DỰ ĐOÁN
+Giới thiệu chương: Trình bày khung phương pháp đề xuất theo hướng khai thác self-ensembling dự đoán để ước lượng độ tin cậy nhãn và lựa chọn dữ liệu huấn luyện phù hợp hơn. Trình bày tiêu chí lựa chọn, cơ chế đảm bảo ổn định và khả năng mở rộng khi thay đổi chiến lược.
+Nội dung chương 2 sẽ bố cục theo các mục sau:
+    Phát biểu bài toán và các ký hiệu sử dụng.
+    Self-ensembling dự đoán trong tiến trình huấn luyện và ý nghĩa đối với độ tin cậy nhãn.
+    Chiến lược lựa chọn dữ liệu và xử lý mẫu nghi nhiễu.
+    Cơ chế đảm bảo ổn định và hạn chế mất cân bằng dữ liệu.
+    Tổ chức theo dõi và ghi nhận kết quả phục vụ phân tích và báo cáo.
+    Kết luận chương.
+
+Chương 3: THỬ NGHIỆM VÀ ĐÁNH GIÁ
+
+Giới thiệu chương: Thiết lập dữ liệu, môi trường và quy trình đánh giá. Tiến hành thực nghiệm để kiểm chứng hiệu quả của phương pháp, so sánh với huấn luyện thông thường và thảo luận kết quả.
+
+Nội dung chương 3 sẽ bố cục theo các mục sau:
+
+    Tập dữ liệu và thiết lập nhiễu cho thực nghiệm.
+Thực nghiệm dự kiến trên CIFAR-10, mở rộng CIFAR-100 nếu điều kiện cho phép, nhãn nhiễu được thiết lập theo mô hình nhiễu đối xứng ở các mức khác nhau.
+    Mô hình và cấu hình huấn luyện.
+    Chỉ số đánh giá và phương pháp đo lường.
+    Kết quả thực nghiệm và so sánh với baseline.
+    Phân tích và thảo luận kết quả.
+    Nhận xét về độ phức tạp và khả năng áp dụng.
+    Kết luận chương.
+
+III. KẾT LUẬN
+
+Luận văn tập trung nghiên cứu phương pháp loại bỏ ảnh hưởng của nhãn nhiễu cho học có giám sát dựa trên self-ensembling dự đoán, nhằm nâng cao độ tin cậy và hiệu quả huấn luyện khi dữ liệu gán nhãn không hoàn hảo. Trên cơ sở kết quả thực nghiệm và phân tích, luận văn đưa ra nhận xét về ưu điểm, hạn chế và đề xuất định hướng phát triển tiếp theo.
+
+IV. DANH MỤC CÁC TÀI LIỆU THAM KHẢO
+
+[1] Frenay, B., Verleysen, M. (2014), "Classification in the Presence of Label Noise: A Survey", IEEE Transactions on Neural Networks and Learning Systems, 25(5), 845-869.
+[2] Han, B., Yao, Q., Yu, X., et al. (2018), "Co-teaching: Robust Training of Deep Neural Networks with Extremely Noisy Labels", Advances in Neural Information Processing Systems (NeurIPS), 2018.
+[3] He, K., Zhang, X., Ren, S., Sun, J. (2016), "Deep Residual Learning for Image Recognition", Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition (CVPR), 2016.
+[4] Krizhevsky, A. (2009), "Learning Multiple Layers of Features from Tiny Images", Technical Report, University of Toronto, 2009.
+[5] Laine, S., Aila, T. (2017), "Temporal Ensembling for Semi-Supervised Learning", Proceedings of the International Conference on Learning Representations (ICLR), 2017.
+[6] Li, J., Socher, R., Hoi, S. C. H. (2020), "DivideMix: Learning with Noisy Labels as Semi-supervised Learning", Proceedings of the International Conference on Learning Representations (ICLR), 2020.
+[7] Li, M., Zhu, C. (2024), "Noisy Label Processing for Classification: A Survey", arXiv:2404.04159.
+[8] Nguyen, D. T., Lee, K., Ma, X., Zhou, J., Wang, J., Jia, X., Li, B., Liu, T. (2020), "SELF: Learning to Filter Noisy Labels with Self-Ensembling", Proceedings of the International Conference on Learning Representations (ICLR), 2020.
+[9] Northcutt, C. G., Athalye, A., Mueller, J. (2021), "Pervasive Label Errors in Test Sets Destabilize Machine Learning Benchmarks", NeurIPS Track on Datasets and Benchmarks, 2021.
+[10] Patrini, G., Rozza, A., Menon, A. K., Nock, R., Qu, L. (2017), "Making Deep Neural Networks Robust to Label Noise: A Loss Correction Approach", Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition (CVPR), 2017.
+[11] Reed, S., Lee, H., Anguelov, D., Szegedy, C., Erhan, D., Rabinovich, A. (2015), "Training Deep Neural Networks on Noisy Labels with Bootstrapping", International Conference on Learning Representations (ICLR) Workshop, 2015.
+[12] Song, H., Kim, M., Park, D., Shin, Y., Lee, J. G. (2022), "Learning from Noisy Labels with Deep Neural Networks: A Survey", IEEE Transactions on Neural Networks and Learning Systems, 2022.
+[13] van Rooyen, B., Williamson, R. C. (2018), "A Theory of Learning with Corrupted Labels", Journal of Machine Learning Research, 18(228), 1-50.
+[14] Wang, Y., Ma, X., Chen, Z., et al. (2019), "Symmetric Cross Entropy for Robust Learning with Noisy Labels", Proceedings of the IEEE International Conference on Computer Vision (ICCV), 2019.
+[15] Zhang, H., Zhang, Y., Li, J., Liu, J., Ji, L. (2025), "A Survey on Learning with Noisy Labels in Natural Language Processing: How to Train Models with Label Noise", Engineering Applications of Artificial Intelligence, 146, 110157.
+[16] Zhang, Z., Sabuncu, M. R. (2018), "Generalized Cross Entropy Loss for Training Deep Neural Networks with Noisy Labels", Advances in Neural Information Processing Systems (NeurIPS), 2018.
+
+
+có các góp ý sau: hãy phân tích, đánh giá, lập luận, phản biện với các góp ý sau: về góp ý format chỉnh sửa căn chỉnh sẽ không bàn luận. Đi chính vào chỉnh sửa nội dung
+1) Trang bìa phụ -> Hà Nội, 2025
+2) Về định dạng chung, nên format cân lề hai bên (thay vì bên trái như hiện thời)
+Thu nhỏ bớt khoảng cách dòng, khoảng cách giữa các đoạn văn.
+Loại bỏ các trang trống, đặc biệt phần ký nên để sát lại vào 1 trang có nội dung.
+3) Trang 1: "riêng ImageNet được ước lượng có tỷ lệ lỗi tối thiểu khoảng 6% trên tập validation."
+Cần thêm trích dẫn cho nhận định này
+4) Trang 1: "Công trình SELF được lựa chọn làm công trình tham chiếu tiêu biểu để định vị hướng nghiên cứu"
+Không nhất thiết chỉ định danh như vậy (cũng đang thiếu trích dẫn nguồn),
+-> Thay vào đó, em giải thích self-ensembling là gì và đề cập một số công trình làm theo hướng này. Tại sao hướng giải quyết này tiềm năng.
+5) Phần nội dung nghiên cứu, chương 3
+- Cần cung cấp trích dẫn cho các tập dữ liệu thử nghiệm CIFAR-10 và CIFAR-100.
+Hai tập này có cùng tính chất nên thay vì chỉ thử trên CIFAR, nên đề cập thêm ImageNet
+(thực tế, tùy điều kiện thực nghiệm có thể chạy trên các bộ subset nhỏ hơn của ImageNet)
+- Mục 3.1: "nhãn nhiễu được thiết lập theo mô hình nhiễu đối xứng ở các mức khác nhau.".
+Kiểm tra lại thiết lập trong code hiện thời: Nhiễu đối xứng (symmetric) hay là Nhiễu bất đối xứng (ASYMMETRIC) 
+
+
+
+
+I. MỞ ĐẦU
+
+1. Lý do chọn đề tài
+Học có giám sát là nền tảng của nhiều hệ thống ứng dụng trong thực tế như thị giác máy tính, xử lý ngôn ngữ tự nhiên, phân loại tín hiệu và các bài toán dự báo trong công nghiệp. Hiệu quả của các mô hình học có giám sát phụ thuộc trực tiếp vào chất lượng nhãn trong dữ liệu huấn luyện. Tuy nhiên, trong các kịch bản dữ liệu lớn hoặc dữ liệu thu thập từ nhiều nguồn, việc đảm bảo nhãn “sạch” tuyệt đối thường không khả thi do sai sót của người gán nhãn, khác biệt tiêu chí gán nhãn giữa các nhóm, cũng như quy trình gán nhãn bán tự động hoặc dựa vào cộng đồng.
+
+Một vấn đề đáng lưu ý là nhãn sai không chỉ xuất hiện trong dữ liệu “thực tế”, mà còn tồn tại ngay trên các bộ dữ liệu benchmark dùng phổ biến để huấn luyện và đánh giá. Nghiên cứu về lỗi nhãn trên các benchmark thuộc nhiều lĩnh vực cho thấy lỗi nhãn xuất hiện với mức đáng kể ngay cả ở tập kiểm định; riêng ImageNet được ước lượng có tỷ lệ lỗi tối thiểu khoảng 6% trên tập validation [10]. Trong điều kiện nhãn nhiễu, mô hình học sâu có thể suy giảm hiệu năng và đối mặt với nguy cơ học lệch khi huấn luyện kéo dài. Việc làm sạch nhãn thủ công trên quy mô lớn thường tốn kém, khó duy trì tính nhất quán và không thuận lợi khi dữ liệu liên tục thay đổi. Vì vậy, nghiên cứu các phương pháp giảm ảnh hưởng của nhãn nhiễu trong học có giám sát là một hướng có ý nghĩa khoa học và giá trị ứng dụng.
+
+Trong các hướng tiếp cận hiện nay, nhóm phương pháp dựa trên self-ensembling dự đoán được xem là tiềm năng vì khai thác “tính nhất quán” của dự đoán trong tiến trình huấn luyện như một tín hiệu đánh giá độ tin cậy nhãn. Self-ensembling có thể hiểu là việc tổng hợp dự đoán của chính mô hình qua nhiều thời điểm huấn luyện hoặc thông qua cơ chế teacher–student để tạo ra dự đoán mục tiêu ổn định hơn [6], [15]. Trên cơ sở đó, một số nghiên cứu đã khai thác dự đoán tự tổng hợp để lọc hoặc giảm ảnh hưởng của các mẫu nghi nhiễu trong quá trình học [9]. Hướng tiếp cận này có ưu điểm là tận dụng thông tin sẵn có trong quá trình huấn luyện, giảm phụ thuộc vào làm sạch nhãn thủ công, đồng thời tạo điều kiện thiết kế quy trình đánh giá có kiểm soát.
+
+Vì vậy, luận văn lựa chọn nghiên cứu đề tài “Nghiên cứu phương pháp loại nhãn nhiễu cho học có giám sát”, tập trung vào hướng tiếp cận dựa trên self-ensembling dự đoán để ước lượng độ tin cậy nhãn và lựa chọn dữ liệu huấn luyện phù hợp hơn. Phần thực nghiệm sử dụng phân loại ảnh làm nghiên cứu tình huống để kiểm chứng và phân tích.
+
+2. Mục đích nghiên cứu
+Bằng trực giác, một mẫu dữ liệu có nhãn đáng tin cậy thường được mô hình học đúng sớm hơn và dự đoán có xu hướng ổn định hơn khi tiến trình huấn luyện tiếp diễn. Ngược lại, với các mẫu có nhãn sai hoặc mơ hồ, dự đoán có thể dao động và thiếu nhất quán. Nếu chỉ dựa vào dự đoán tại một thời điểm đơn lẻ để quyết định giữ hay loại mẫu, kết luận có thể thiếu ổn định do ảnh hưởng của ngẫu nhiên huấn luyện và cơ chế tối ưu.
+
+Mục đích của luận văn là nghiên cứu và xây dựng một phương pháp giảm ảnh hưởng của nhãn nhiễu trong học có giám sát dựa trên tín hiệu dự đoán của mô hình trong tiến trình huấn luyện, nhằm nâng cao độ tin cậy và hiệu năng của mô hình trong điều kiện nhãn không hoàn hảo.
+
+Các mục tiêu cụ thể của luận văn gồm:
+- Hệ thống hóa cơ sở lý thuyết và tổng quan các hướng tiếp cận tiêu biểu trong học có giám sát với nhãn nhiễu [2], [14].
+- Xây dựng khung phương pháp loại nhãn nhiễu dựa trên self-ensembling dự đoán, làm rõ tiêu chí đánh giá độ tin cậy nhãn và nguyên tắc lựa chọn dữ liệu [6], [9], [15].
+- Đề xuất cơ chế đảm bảo tính ổn định và hạn chế mất cân bằng dữ liệu trong quá trình loại nhãn nhiễu.
+- Thiết lập quy trình đánh giá bằng thực nghiệm, so sánh với huấn luyện thông thường và một số hướng tiếp cận liên quan, phân tích và thảo luận kết quả.
+- Đề xuất khuyến nghị và định hướng phát triển tiếp theo nhằm nâng cao khả năng áp dụng của phương pháp trong thực tiễn.
+
+3. Đối tượng và phạm vi nghiên cứu
+- Đối tượng nghiên cứu: Bài toán học có giám sát trong điều kiện nhãn huấn luyện bị nhiễu, và các phương pháp giảm ảnh hưởng của nhãn nhiễu thông qua lựa chọn dữ liệu và xử lý dựa trên dự đoán của mô hình.
+- Phạm vi nghiên cứu: Luận văn tập trung vào kịch bản nhãn nhiễu phổ biến trong học có giám sát. Phần thực nghiệm sử dụng bài toán phân loại ảnh làm nghiên cứu tình huống để đánh giá có kiểm soát, không mở rộng sang các bài toán có cấu trúc phức tạp hơn như phát hiện đối tượng và phân đoạn trong giai đoạn này.
+
+4. Phương pháp nghiên cứu
+- Khảo sát, tổng hợp và phân loại các nhóm phương pháp học với nhãn nhiễu, phân tích ưu điểm, hạn chế và điều kiện áp dụng [2], [14].
+- Xây dựng khung phương pháp loại nhãn nhiễu dựa trên self-ensembling dự đoán trong tiến trình huấn luyện, xác định tiêu chí lựa chọn dữ liệu và cơ chế ổn định hóa [6], [9], [15].
+- Thiết kế thực nghiệm kiểm chứng và đánh giá theo các thước đo phù hợp, so sánh với huấn luyện thông thường và các hướng liên quan.
+- Phân tích, thảo luận kết quả, rút ra nhận xét và đề xuất hướng phát triển.
+
+II. NỘI DUNG
+
+Chương 1: CƠ SỞ LÝ THUYẾT VỀ HỌC CÓ GIÁM SÁT VÀ NHÃN NHIỄU
+Giới thiệu chương: Trình bày các khái niệm nền tảng của học có giám sát, vai trò của dữ liệu gán nhãn, khái niệm nhãn nhiễu và tác động của nhãn nhiễu đến quá trình huấn luyện. Tổng quan các hướng tiếp cận tiêu biểu và các vấn đề còn tồn tại.
+
+Nội dung chương 1 sẽ bố cục theo các mục sau:
+1.1. Tổng quan học có giám sát và các bài toán điển hình.
+1.2. Quy trình gán nhãn dữ liệu và các nguồn phát sinh sai lệch nhãn.
+1.3. Nhãn nhiễu: khái niệm, phân loại và các mô hình nhiễu thường gặp.
+1.4. Ảnh hưởng của nhãn nhiễu đến tối ưu và khả năng tổng quát hóa.
+1.5. Tổng quan các nhóm phương pháp học với nhãn nhiễu.
+1.6. Kết luận chương.
+
+Chương 2: PHƯƠNG PHÁP LOẠI NHÃN NHIỄU DỰA TRÊN SELF-ENSEMBLING DỰ ĐOÁN
+Giới thiệu chương: Trình bày khung phương pháp theo hướng khai thác self-ensembling dự đoán để ước lượng độ tin cậy nhãn và lựa chọn dữ liệu huấn luyện phù hợp hơn. Trình bày tiêu chí lựa chọn, cơ chế đảm bảo ổn định và khả năng mở rộng khi thay đổi chiến lược.
+
+Nội dung chương 2 sẽ bố cục theo các mục sau:
+2.1. Phát biểu bài toán và các ký hiệu sử dụng.
+2.2. Khái niệm self-ensembling dự đoán và ý nghĩa đối với độ tin cậy nhãn.
+2.3. Tiêu chí đánh giá độ tin cậy nhãn từ tín hiệu dự đoán tích lũy trong tiến trình huấn luyện.
+2.4. Chiến lược lựa chọn dữ liệu và xử lý mẫu nghi nhiễu.
+2.5. Cơ chế đảm bảo ổn định và hạn chế mất cân bằng dữ liệu.
+2.6. Theo dõi và ghi nhận kết quả phục vụ phân tích và báo cáo.
+2.7. Kết luận chương.
+
+Chương 3: THỬ NGHIỆM VÀ ĐÁNH GIÁ
+Giới thiệu chương: Thiết lập dữ liệu, môi trường và quy trình đánh giá. Tiến hành thực nghiệm để kiểm chứng hiệu quả của phương pháp, so sánh với huấn luyện thông thường và thảo luận kết quả.
+
+Nội dung chương 3 sẽ bố cục theo các mục sau:
+3.1. Tập dữ liệu và thiết lập nhiễu cho thực nghiệm.
+     Thực nghiệm dự kiến trên CIFAR-10 [5], mở rộng CIFAR-100 [5] nếu điều kiện cho phép. Tùy theo nguồn lực thực nghiệm, có thể bổ sung đánh giá trên ImageNet hoặc một tập con phù hợp của ImageNet [1], [13]. Nhãn nhiễu được thiết lập theo mô hình nhiễu đối xứng trong các thực nghiệm chính; có thể mở rộng mô hình nhiễu bất đối xứng theo cấu hình và điều kiện thực nghiệm.
+3.2. Mô hình và cấu hình huấn luyện.
+3.3. Chỉ số đánh giá và phương pháp đo lường.
+3.4. Kết quả thực nghiệm và so sánh với baseline.
+3.5. Phân tích và thảo luận kết quả.
+3.6. Nhận xét về độ phức tạp và khả năng áp dụng.
+3.7. Kết luận chương.
+
+III. KẾT LUẬN
+Luận văn tập trung nghiên cứu phương pháp giảm ảnh hưởng của nhãn nhiễu cho học có giám sát dựa trên self-ensembling dự đoán, nhằm nâng cao độ tin cậy và hiệu quả huấn luyện khi dữ liệu gán nhãn không hoàn hảo. Trên cơ sở kết quả thực nghiệm và phân tích, luận văn đưa ra nhận xét về ưu điểm, hạn chế và đề xuất định hướng phát triển tiếp theo.
+
+IV. DANH MỤC CÁC TÀI LIỆU THAM KHẢO
+
+[1] Deng J Dong W Socher R Li L-J Li K Fei-Fei L (2009), “ImageNet: A Large-Scale Hierarchical Image Database”, Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition (CVPR), 2009.
+[2] Frenay B Verleysen M (2014), “Classification in the Presence of Label Noise: A Survey”, IEEE Transactions on Neural Networks and Learning Systems, 25(5), 845-869.
+[3] Han B Yao Q Yu X et al. (2018), “Co-teaching: Robust Training of Deep Neural Networks with Extremely Noisy Labels”, Advances in Neural Information Processing Systems (NeurIPS), 2018.
+[4] He K Zhang X Ren S Sun J (2016), “Deep Residual Learning for Image Recognition”, Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition (CVPR), 2016.
+[5] Krizhevsky A (2009), “Learning Multiple Layers of Features from Tiny Images”, Technical Report, University of Toronto, 2009.
+[6] Laine S Aila T (2017), “Temporal Ensembling for Semi-Supervised Learning”, Proceedings of the International Conference on Learning Representations (ICLR), 2017.
+[7] Li J Socher R Hoi SCH (2020), “DivideMix: Learning with Noisy Labels as Semi-supervised Learning”, Proceedings of the International Conference on Learning Representations (ICLR), 2020.
+[8] Li M Zhu C (2024), “Noisy Label Processing for Classification: A Survey”, arXiv, 2024.
+[9] Nguyen DT Lee K Ma X Zhou J Wang J Jia X Li B Liu T (2020), “SELF: Learning to Filter Noisy Labels with Self-Ensembling”, Proceedings of the International Conference on Learning Representations (ICLR), 2020.
+[10] Northcutt CG Athalye A Mueller J (2021), “Pervasive Label Errors in Test Sets Destabilize Machine Learning Benchmarks”, NeurIPS Track on Datasets and Benchmarks, 2021.
+[11] Patrini G Rozza A Menon AK Nock R Qu L (2017), “Making Deep Neural Networks Robust to Label Noise: a Loss Correction Approach”, Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition (CVPR), 2017.
+[12] Reed S Lee H Anguelov D Szegedy C Erhan D Rabinovich A (2015), “Training Deep Neural Networks on Noisy Labels with Bootstrapping”, International Conference on Learning Representations (ICLR) Workshop, 2015.
+[13] Russakovsky O Deng J Su H et al. (2015), “ImageNet Large Scale Visual Recognition Challenge”, International Journal of Computer Vision, 115(3), 211-252.
+[14] Song H Kim M Park D Shin Y Lee JG (2022), “Learning from Noisy Labels with Deep Neural Networks: A Survey”, IEEE Transactions on Neural Networks and Learning Systems, 2022.
+[15] Tarvainen A Valpola H (2017), “Mean Teachers are Better Role Models: Weight-averaged Consistency Targets Improve Semi-supervised Deep Learning Results”, Advances in Neural Information Processing Systems (NeurIPS), 2017.
+[16] van Rooyen B Williamson RC (2018), “A Theory of Learning with Corrupted Labels”, Journal of Machine Learning Research, 18(228), 1-50.
+[17] Wang Y Ma X Chen Z et al. (2019), “Symmetric Cross Entropy for Robust Learning with Noisy Labels”, Proceedings of the IEEE International Conference on Computer Vision (ICCV), 2019.
+[18] Zhang H Zhang Y Li J Liu J Ji L (2025), “A Survey on Learning with Noisy Labels in Natural Language Processing: How to Train Models with Label Noise”, Engineering Applications of Artificial Intelligence, 146, 110157.
+[19] Zhang Z Sabuncu MR (2018), “Generalized Cross Entropy Loss for Training Deep Neural Networks with Noisy Labels”, Advances in Neural Information Processing Systems (NeurIPS), 2018.

@@ -1,0 +1,74 @@
+blue_cells_list=[('UNKNOW_device', 0), ('LIGHTING', 143), ('GLASSES', 219), ('SIDE VIEW MIRROR / CAMERA', 241), ('REAR VIEW MIRROR / CAMERA', 251), ('COMBI METER', 264), ('HMI', 278), ('PHYSICAL SWITCHES', 284), ('STEERING', 288), ('PEDALS AND FOOT-REST', 303), ('GEAR SHIFT', 305), ('PARKING BRAKE', 309), ('WINDOW OPENING', 316), ('SUN VISOR', 325), ('3rd ROW SEAT', 328), ('DRIVER SEAT', 333), ('ASSIST SEAT', 360), ('2ND ROW SEAT', 369), ('TRIM', 387), ('2ND ROW STORAGE', 393), ('TRUNK / LUGGAGE STORAGE', 395), ('AMBIENT LIGHTING', 397), ('AMENITY', 402), ('AIR CONDITIONING AND HEATING', 411), ('AIR QUALITY MANAGEMENT', 422), ('SOUND BUBBLE', 425), ('SERVICES', 427), ('AUDIO & NAVIGATION', 429), ('SPEAKERS', 452), ('NVH MANAGEMENT', 457), ('ACCESS', 463), ('OPENING', 476), ('PROTECTION', 501), ('ACCESSORY', 510), ('LOGO & EMBLEM', 519), ('DRIVING MODE', 522), ('SUSPENSION', 528), ('BRAKING', 530), ('TIRES', 539), ('WHEELS & WHEEL COVERS', 547), ('SPARE WHEEL', 553), ('ADAS COMFORT', 556), ('ADAS SAFETY', 574), ('ADAS PARKING', 610), ('WARNING & ALERT', 635), ('AIRBAGS', 645), ('SEAT BELT', 655), ('OTHER', 676), ('SPECIFICATION', 681), ('CHARGER', 685), ('PLUG / CABLE', 696), ('EV DEDICATED FEATURES', 698), ('xxx', 709)]
+blue_cells_list_old=[('3rd ROW SEAT', 328), ('TIRES', 539), ('PEDALS AND FOOT-REST', 303), ('PARKING BRAKE', 309), ('AIR QUALITY MANAGEMENT', 422), ('TRUNK / LUGGAGE STORAGE', 395), ('OPENING', 476), ('GLASSES', 219), ('AMBIENT LIGHTING', 397), ('BRAKING', 530), ('SUN VISOR', 325), ('WINDOW OPENING', 316), ('PROTECTION', 501), ('2ND ROW SEAT', 369), ('AIR CONDITIONING AND HEATING', 411), ('ADAS PARKING', 610), ('ADAS COMFORT', 556), ('SPECIFICATION', 681), ('2ND ROW STORAGE', 393), ('ACCESS', 463), ('SOUND BUBBLE', 425), ('COMBI METER', 264), ('WHEELS & WHEEL COVERS', 547), ('SIDE VIEW MIRROR / CAMERA', 241), ('OTHER', 676), ('EV DEDICATED FEATURES', 698), ('DRIVING MODE', 522), ('TRIM', 387), ('NVH MANAGEMENT', 457), ('SERVICES', 427), ('DRIVER SEAT', 333), ('WARNING & ALERT', 635), ('LIGHTING', 143), ('PLUG / CABLE', 696), ('CHARGER', 685), ('xxx', 709), ('ACCESSORY', 510), ('ASSIST SEAT', 360), ('LOGO & EMBLEM', 519), ('SPARE WHEEL', 553), ('UNKNOW_device', 0), ('HMI', 278), ('ADAS SAFETY', 574), ('GEAR SHIFT', 305), ('REAR VIEW MIRROR / CAMERA', 251), ('STEERING', 288), ('SPEAKERS', 452), ('SUSPENSION', 528), ('AIRBAGS', 645), ('PHYSICAL SWITCHES', 284), ('SEAT BELT', 655), ('AUDIO & NAVIGATION', 429), ('AMENITY', 402)]
+column_names=['comment_1', 'comment_2', 'comment_3', 'comment_4', 'comment_5']
+column_number=1
+delete_cells=[142, 143, 219, 241, 251, 263, 264, 278, 284, 288, 303, 305, 309, 316, 325, 327, 328, 333, 360, 369, 387, 392, 393, 395, 397, 401, 402, 410, 411, 422, 424, 425, 427, 429, 452, 457, 462, 463, 476, 501, 510, 519, 521, 522, 528, 530, 538, 539, 547, 553, 555, 556, 574, 610, 635, 645, 655, 675, 676, 680, 681, 684, 685, 696, 698]
+device=AMENITY
+df=    auto      Gr Keyword  ... comment_5         device_group            device_name
+0    NaN  XQA商品性     NaN  ...       NaN  UNKNOW_device_group          UNKNOW_device
+1    NaN     NaN     NaN  ...       NaN  UNKNOW_device_group          UNKNOW_device
+2    NaN     NaN     NaN  ...       NaN  UNKNOW_device_group          UNKNOW_device
+3    NaN   XX4PT    KH1T  ...       NaN  UNKNOW_device_group          UNKNOW_device
+4    NaN     NaN     NaN  ...       NaN  UNKNOW_device_group          UNKNOW_device
+..   ...     ...     ...  ...       ...                  ...                    ...
+706  NaN  XX4EMC     ALL  ...       NaN      X14_EV_PHEV_HEV  EV DEDICATED FEATURES
+707  NaN     NaN     NaN  ...       NaN      X14_EV_PHEV_HEV  EV DEDICATED FEATURES
+708  NaN     NaN     NaN  ...       NaN      X14_EV_PHEV_HEV  EV DEDICATED FEATURES
+709  NaN     NaN     NaN  ...       NaN      X14_EV_PHEV_HEV  EV DEDICATED FEATURES
+710  NaN     NaN     NaN  ...       NaN                  NaN                    NaN
+
+[711 rows x 45 columns]
+df_cleaned=    auto                       Gr  ...            device_name project_name
+0    NaN                   XQA商品性  ...          UNKNOW_device         P62A
+1    NaN                      NaN  ...          UNKNOW_device         P62A
+2    NaN                      NaN  ...          UNKNOW_device         P62A
+3    NaN                    XX4PT  ...          UNKNOW_device         P62A
+4    NaN                      NaN  ...          UNKNOW_device         P62A
+..   ...                      ...  ...                    ...          ...
+702  NaN                   XX4EMC  ...  EV DEDICATED FEATURES         P62A
+703  NaN            XX7USM,XX4EMC  ...  EV DEDICATED FEATURES         P62A
+704  NaN  XX4NH電動車,XQ5保安防災,XQE電動車  ...  EV DEDICATED FEATURES         P62A
+705  NaN                    XP4充電  ...  EV DEDICATED FEATURES         P62A
+706  NaN                   XX4EMC  ...  EV DEDICATED FEATURES         P62A
+
+[642 rows x 46 columns]
+df_end=    auto                       Gr  ...            device_name project_name
+0    NaN                   XQA商品性  ...          UNKNOW_device         P62A
+1    NaN                      NaN  ...          UNKNOW_device         P62A
+2    NaN                      NaN  ...          UNKNOW_device         P62A
+3    NaN                    XX4PT  ...          UNKNOW_device         P62A
+4    NaN                      NaN  ...          UNKNOW_device         P62A
+..   ...                      ...  ...                    ...          ...
+702  NaN                   XX4EMC  ...  EV DEDICATED FEATURES         P62A
+703  NaN            XX7USM,XX4EMC  ...  EV DEDICATED FEATURES         P62A
+704  NaN  XX4NH電動車,XQ5保安防災,XQE電動車  ...  EV DEDICATED FEATURES         P62A
+705  NaN                    XP4充電  ...  EV DEDICATED FEATURES         P62A
+706  NaN                   XX4EMC  ...  EV DEDICATED FEATURES         P62A
+
+[707 rows x 46 columns]
+df_optioncode=    auto   Gr Keyword  ... comment_5     device_group            device_name
+707  NaN  NaN     NaN  ...       NaN  X14_EV_PHEV_HEV  EV DEDICATED FEATURES
+708  NaN  NaN     NaN  ...       NaN  X14_EV_PHEV_HEV  EV DEDICATED FEATURES
+709  NaN  NaN     NaN  ...       NaN  X14_EV_PHEV_HEV  EV DEDICATED FEATURES
+710  NaN  NaN     NaN  ...       NaN              NaN                    NaN
+
+[4 rows x 45 columns]
+duplicated_elements=[]
+file_path=/var/www/html/Create_syo_new/xqa_web/app/datas/仕様表/仕様表_P62A.xlsx
+flg_create_syo=False
+gray_cells_list=[('UNKNOW_device_group', 0), ('X01_VISIBILITY', 142), ('X02_COCKPIT', 263), ('X03_SEAT', 327), ('X04_INTERIOR_TRIM_&_STORAGE', 392), ('X05_AMENITY', 401), ('X06_AIR_CONDITIONER', 410), ('X07_AUDIO_NAVIGATION_CCS', 424), ('X08_EXTERIOR', 462), ('X09_MECHANISM', 521), ('X10_WHEELS_&_TIRES', 538), ('X11_SAFETY_SECURITY', 555), ('X12_OTHER', 675), ('X13_SPECIFICATION', 680), ('X14_EV_PHEV_HEV', 684), ('xxx', 709)]
+i=5
+index_blue_old=709
+index_gray_old=709
+item=item
+list_columns_name=['auto', 'Gr', 'Keyword', 'CADICS ID', 'conf-001', 'conf-002', 'conf-003', 'conf-004', 'conf-005', 'conf-006', 'conf-007', 'conf-008', 'conf-009', 'conf-010', 'conf-011', 'conf-012', 'conf-013', 'conf-014', 'conf-015', 'conf-016', 'conf-017', 'conf-018', 'conf-019', 'conf-020', 'conf-021', 'conf-022', 'conf-023', 'conf-024', 'conf-025', 'conf-026', 'conf-027', 'conf-028', 'conf-029', 'conf-030', 'conf-031', 'conf-032', 'conf-033', 'conf-034', 'comment_1', 'comment_2', 'comment_3', 'comment_4', 'comment_5']
+list_error=[]
+opt_index=707
+project_name=P62A
+result_querry_region_4_blue=[]
+result_querry_region_4_gray=[]
+set_gray_cells_list_values={0, 675, 709, 263, 392, 521, 680, 555, 327, 684, 142, 462, 410, 401, 424, 538}
+sheet_name=Sheet1
+value=402
+value_blue_old=xxx
+value_gray_old=xxx

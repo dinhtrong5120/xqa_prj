@@ -1,0 +1,3318 @@
+Tôi có các code sau:
+
+
+***********************************************file syo.py
+
+import sys
+import os
+import io
+
+import pandas as pd
+import numpy as np
+from streamlit_modal import Modal
+import streamlit_antd_components as sac
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../..")))
+from xqa_web.app.setting import *
+from xqa_web.app.logics.syo.db.function_database_new import querry_data_syo_hyo, get_gray_blue, update_data_new, \
+    update_and_querry_form_data, add_function_from_admin, update_syo, update_syo_form
+from xqa_web.app.logics.syo.convert_data_syo import dataframe_convert
+from xqa_web.app.logics.syo.update_file import get_csrf_token, update_file_into_server_new
+from xqa_web.app.logics.syo.check_filed_information import check_key_spec_new, check_optioncode
+from xqa_web.app.logics.syo.all_process_spec_not_protected import main_process_spec_not_protected
+from xqa_web.app.logics.syo.create_syo_new_edit import create_syo
+
+
+def main():
+    csrf_token = get_csrf_token()
+    local_css(os.path.join(BASE_DIR_STATICS, "styles.css"))
+    # try :
+    for item in ['data_cadics']:
+        if item in st.session_state:
+            st.session_state[item] = pd.DataFrame(columns=[f'Column_{i + 1}' for i in range(30)],
+                                                  index=range(1, 101)).fillna("")
+            try:
+                st.session_state['data_pro'][item] = pd.DataFrame(columns=[f'Column_{i + 1}' for i in range(30)],
+                                                                  index=range(1, 101)).fillna("")
+            except:
+                pass
+    if 'message_1' in st.session_state:
+        del st.session_state.message_1
+    st.markdown(
+        r"""
+        <style>
+        .stMainBlockContainer {
+        padding-left: 1rem;
+        padding-right: 2rem;
+        }
+        </style>
+        """, unsafe_allow_html=True
+
+    )
+    list_all_message = [f'message_{i + 1}' for i in range(12)]
+
+    modal_view_syo = Modal(key="modal_syo_viewing", title="Viewing...")
+    modal_load_file_syo = Modal(key="modal_loading", title="Loading...")
+    modal_create_form = Modal(key="modal_create_form", title="仕様表_BLANK作成...")
+    modal_create_syo = Modal(key="modal_create_syo", title="仕様表作成...")
+    modal_save_syo = Modal(key="modal_save_syo", title="Saving...")
+    col1, col2 = st.columns([24, 4.5])
+    with col1:
+        st.markdown(
+            f'<h2 style="text-align: center;'
+            f'background: linear-gradient(to right,  #000046, #1cb5e0);'
+            f'border: 2px solid #D9D9D9; '
+            f'color:azure;'
+            f'border-radius: 10px;'
+            f'padding: 10px">ステップ 1 : 仕様表作成</h2>',
+            unsafe_allow_html=True)
+
+    with col2:
+        st.markdown(
+            f'<p style="text-align: center;'
+            f'background: linear-gradient(to right, #000046, #1cb5e0);'
+            f'color:azure;'
+            f'border-radius: 10px;'
+            f'border: 2px solid #D9D9D9; '
+            f'padding: 6px">{st.session_state.name_user}<br>{st.session_state.position}</p>',
+            unsafe_allow_html=True)
+
+    col3, col4 = st.columns([0.26, 0.74])
+    if 'flg_check_fail' not in st.session_state:
+        st.session_state.flg_check_fail = None
+
+    for var_status in ["device_group", "device", 'data_for_create']:
+        if var_status not in st.session_state:
+            st.session_state[var_status] = []
+    for var_name in ['formspec_view', 'data_syo_view', 'formspec', 'form', 'data_syo']:
+        if var_name not in st.session_state:
+            st.session_state[var_name] = pd.DataFrame(columns=[f'Column_{i + 1}' for i in range(30)],
+                                                      index=range(1, 101)).fillna("")
+    for var_status in ['button_disabled', 'view_syo_complete', 'load_syo_complete', 'create_form_complete',
+                       'create_syo_complete', 'save_syo_complete']:
+        if var_status not in st.session_state:
+            st.session_state[var_status] = False
+
+    with col3:
+        with st.container(border=True, key="PROJ情報入力"):
+            col_left_prj_grid = grid(1, 1, 1, 1, 1, vertical_align="top")
+            col_left_prj_grid.subheader('PROJ情報入力')
+
+            col_left_prj_grid.text_input("Model Code", key="code")
+
+            col_left_prj_grid.markdown('ファイルをインポート :blue[(Spectlist, 仕様表, 仕様表フォーム)] ')
+            files = col_left_prj_grid.file_uploader("", accept_multiple_files=True, label_visibility="collapsed")
+            button_load_file = col_left_prj_grid.button("ファイル読み込む", use_container_width=True,
+                                                        help='Upload input files to memory.')
+            if button_load_file:
+                st.session_state.view_syo_complete = False
+                st.session_state.create_syo_complete = False
+                st.session_state.create_form_complete = False
+                st.session_state.save_syo_complete = False
+                modal_load_file_syo.open()
+        if modal_load_file_syo.is_open():
+            with modal_load_file_syo.container():
+                with st.spinner(text="In progress..."):
+                    if len(files) > 0:
+                        update_file_into_server_new(st.session_state.code, files, csrf_token)
+                        update_syo()
+                        update_syo_form(files)
+                        if 'message_5' in st.session_state:
+                            del st.session_state['message_5']
+                        if st.session_state.code != '':
+                            data_syo, unique_list_max, unique_list_submax = querry_data_syo_hyo(st.session_state.code)
+                            st.session_state.data_syo = data_syo
+                            st.session_state.device_group = unique_list_max
+                            st.session_state.device = unique_list_submax
+
+                            df_1, merged_df_4_optioncode, unique_list_max, unique_list_submax = update_and_querry_form_data()
+
+                            form_df = pd.concat([df_1, merged_df_4_optioncode], axis=0).fillna('').drop(
+                                columns=['device_name'])
+                            st.session_state.form = form_df
+                        else:
+                            df_1, merged_df_4_optioncode, unique_list_max, unique_list_submax = update_and_querry_form_data()
+
+                            form_df = pd.concat([df_1, merged_df_4_optioncode], axis=0).fillna('').drop(
+                                columns=['device_name'])
+                            st.session_state.form = form_df
+                    else:
+                        st.session_state.message_5 = "file has not been uploaded yet!!!"
+                        if 'message_4' in st.session_state:
+                            del st.session_state['message_4']
+                        if 'message_10' in st.session_state:
+                            del st.session_state['message_10']
+                    st.session_state.load_syo_complete = True
+                    modal_load_file_syo.close()
+
+        with st.container(border=True, key="計算"):
+            col_left_prj_grid_2 = grid(1, [0.2, 0.8], [0.2, 0.8], vertical_align="top")
+            col_left_prj_grid_2.subheader('計算')
+
+            # Tạo một container trong Streamlit
+            with col_left_prj_grid_2.container():
+                # Tạo nút với icon
+                button_item = sac.ButtonsItem(icon=sac.BsIcon(name='1-circle-fill', size=20, color='black'))
+                # Sử dụng sac.buttons với danh sách nút
+                sac.buttons([button_item], align='center', variant='text', color='white')
+
+            button_create_syohyo_form = col_left_prj_grid_2.button("仕様表フォーム作成", use_container_width=True,
+                                                                   help='Get the equipment already in the database combined with the config from the speclist file.')
+            if button_create_syohyo_form:
+                st.session_state.view_syo_complete = False
+                st.session_state.load_syo_complete = False
+                st.session_state.create_syo_complete = False
+                st.session_state.save_syo_complete = False
+
+                modal_create_form.open()
+
+            # Tạo một container trong Streamlit
+            with col_left_prj_grid_2.container():
+                # Tạo nút với icon
+                button_item = sac.ButtonsItem(icon=sac.BsIcon(name='2-circle-fill', size=20, color='black'))
+                # Sử dụng sac.buttons với danh sách nút
+                sac.buttons([button_item], align='center', variant='text', color='white')
+            button_create_syohyo = col_left_prj_grid_2.button("仕様表作成", use_container_width=True,
+                                                              help='Create complete 仕様表 file.',
+                                                              disabled=not ('flg_check_fail' in st.session_state))
+
+            if button_create_syohyo:
+                st.session_state.view_syo_complete = False
+                st.session_state.load_syo_complete = False
+                st.session_state.create_form_complete = False
+                st.session_state.save_syo_complete = False
+                modal_create_syo.open()
+
+        if modal_create_syo.is_open():
+            with modal_create_syo.container():
+                with st.spinner(text="In progress..."):
+                    if st.session_state.flg_check_fail is not None:
+                        if st.session_state.formspec.shape[1] > 4:
+                            # st.success(st.session_state.formspec_view)
+                            check_option_code_result = check_optioncode(st.session_state.formspec_view)
+                            if not check_option_code_result:
+                                if st.session_state.code != '':
+                                    form_syo = create_syo(st.session_state.formspec_view,
+                                                          st.session_state.data_for_create)
+                                    form_syo.replace({np.nan: ''}, inplace=True)
+
+                                    result_querry_region_4_gray, result_querry_region_4_blue = get_gray_blue(
+                                        st.session_state.code)
+                                    df, df_1 = dataframe_convert(form_syo, st.session_state.code,
+                                                                 result_querry_region_4_gray,
+                                                                 result_querry_region_4_blue)
+                                    update_data_new(st.session_state.code, df, df_1)
+                                    st.session_state.message_7 = 'Completed'
+                                    st.session_state.flg_check_fail = None
+                                else:
+                                    st.session_state.message_7 = 'Model code can not be left blank'
+                                    st.warning("Model code can not be left blank")
+                            else:
+                                st.error('OptionCode empty')
+                                st.session_state.message_7 = 'OptionCode empty'
+                        else:
+                            st.error('OptionCode empty')
+                            st.session_state.message_7 = 'OptionCode empty'
+                    else:
+                        st.session_state.message_7 = 'Please create Form'
+                        st.warning(st.session_state.message_7)
+                        st.warning("Please create Form")
+                    st.session_state.create_syo_complete = True
+                    # modal_create_syo.close()
+        if modal_create_form.is_open():
+            with modal_create_form.container():
+                with st.spinner(text="In progress..."):
+                    if files is not None and files != []:
+                        code = str(st.session_state.code).lower()
+                        if code not in str(files[0].name).lower() or 'Spec_List' not in files[0].name:
+                            st.error("Model code or Spec incorrect")
+                            st.session_state.message_6 = "Model code or Spec incorrect"
+                            st.session_state.data_syo = pd.DataFrame(columns=[f'Column_{i + 1}' for i in range(30)],
+                                                                     index=range(1, 101)).fillna("")
+                        elif code == '':
+                            st.error('Model code is blank')
+                            st.session_state.message_6 = 'Model code is blank'
+                            st.session_state.data_syo = pd.DataFrame(columns=[f'Column_{i + 1}' for i in range(30)],
+                                                                     index=range(1, 101)).fillna("")
+                        else:
+                            df_check_log, flg_check_fail = check_key_spec_new(files)
+                            st.session_state.flg_check_fail = flg_check_fail
+                            if flg_check_fail:
+                                df_1, merged_df_4_optioncode, unique_list_max, unique_list_submax = update_and_querry_form_data()
+                                merged_df_fail = pd.concat([df_1, merged_df_4_optioncode], axis=0)
+                                st.session_state.formspec = merged_df_fail
+                                st.session_state.device_group = unique_list_max
+                                st.session_state.device = unique_list_submax
+                                st.write(df_check_log)
+                                st.warning("Form Speclist is incorrect")
+                                st.session_state.message_6 = "Model code or Spec incorrect"
+                            else:
+                                df_end_region3, data_for_create = main_process_spec_not_protected(files[0],
+                                                                                                  str(st.session_state.code).upper())
+                                merger_end, unique_list_max, unique_list_submax = add_function_from_admin(
+                                    df_end_region3, files)
+                                merger_end = merger_end.reset_index(drop=True)
+                                st.session_state.formspec = merger_end
+                                # Để tránh trờng hợp khi ng dùng mở web rồi tạo syo rồi tải blank về mà không bấm view.
+                                if 'auto' not in st.session_state.formspec_view:
+                                    st.session_state.formspec_view = st.session_state.formspec
+                                st.session_state.device_group = unique_list_max
+                                st.session_state.device = unique_list_submax
+                                st.session_state.data_for_create = data_for_create
+                                st.session_state.message_6 = "Create Completed!!!"
+                    else:
+                        st.session_state.data_syo = pd.DataFrame(columns=[f'Column_{i + 1}' for i in range(30)],
+                                                                 index=range(1, 101)).fillna("")
+                        st.error('file has not been uploaded yet')
+                        st.session_state.message_6 = "file has not been uploaded yet"
+                    st.session_state.create_form_complete = True
+                    modal_create_form.close()
+        with st.container(border=True, key="データ表示"):
+            col_left_prj_grid_3 = grid(1, 1, vertical_align="top")
+            col_left_prj_grid_3.subheader('データ表示')
+            button_view = col_left_prj_grid_3.button("表示", use_container_width=True,
+                                                     help='View existing 仕様表 projects in the database')
+            if button_view:
+                # __________________________________
+                st.session_state.load_syo_complete = False
+                st.session_state.create_form_complete = False
+                st.session_state.create_syo_complete = False
+                st.session_state.save_syo_complete = False
+                # __________________________________
+                modal_view_syo.open()
+        if modal_view_syo.is_open():
+            with modal_view_syo.container():
+                with st.spinner(text="In progress..."):
+                    data_syo, unique_list_max, unique_list_submax = querry_data_syo_hyo(st.session_state.code)
+                    st.session_state.data_syo = data_syo
+                    st.session_state.device_group = unique_list_max
+                    st.session_state.device = unique_list_submax
+
+                    df_1, merged_df_4_optioncode, unique_list_max, unique_list_submax = update_and_querry_form_data()
+
+                    form_df = pd.concat([df_1, merged_df_4_optioncode], axis=0).fillna('').drop(columns=['device_name'])
+                    st.session_state.form = form_df
+                    st.session_state.view_syo_complete = True
+                    modal_view_syo.close()
+        # ******************************************************
+        if st.session_state.view_syo_complete:
+            if 'message_1' in st.session_state:
+                st.error(st.session_state.message_1)
+            if 'Model code' in st.session_state.message_2:
+                st.error(st.session_state.message_2)
+            elif st.session_state.message_2 != '':
+                st.success(st.session_state.message_2)
+            # st.rerun()
+        # ******************************************************
+        if st.session_state.load_syo_complete:
+            if 'message_10' in st.session_state:
+                new_list = [msg for msg in list_all_message if msg != 'message_10']
+                for item in new_list:
+                    try:
+                        del st.session_state[item]
+                    except:
+                        pass
+                if 'Updated' in st.session_state.message_10:
+                    st.success(st.session_state.message_10)
+                else:
+                    st.error(st.session_state.message_10)
+
+            if 'message_3' in st.session_state:
+                if 'Completed' in st.session_state.message_3:
+                    st.success(st.session_state.message_3)
+                elif st.session_state.message_3 != '':
+                    st.error(st.session_state.message_3)
+            if 'message_4' in st.session_state:
+                if 'Update' in st.session_state.message_4:
+                    if 'message_10' in st.session_state:
+                        try:
+                            st.success(st.session_state.message_10)
+                            del st.session_state['message_4']
+                            del st.session_state['message_2']
+                        except:
+                            pass
+                    else:
+                        st.success(st.session_state.message_4)
+                elif st.session_state.message_4 != '':
+                    st.error(st.session_state.message_4)
+
+            if 'message_5' in st.session_state:
+                if 'Updated' in st.session_state.message_5:
+                    st.success(st.session_state.message_5)
+                elif st.session_state.message_5 != '':
+                    st.error(st.session_state.message_5)
+        # ******************************************************
+        if st.session_state.create_form_complete:
+            if 'Completed!!!' in st.session_state.message_6:
+                st.success(st.session_state.message_6)
+                try:
+                    del st.session_state['message_5']
+                except:
+                    pass
+            else:
+                st.error(st.session_state.message_6)
+        # ******************************************************
+        if st.session_state.create_syo_complete:
+            if 'message_7' in st.session_state:
+                if 'Completed' in st.session_state.message_7:
+                    st.success(st.session_state.message_7)
+                else:
+                    st.error(st.session_state.message_7)
+    with col4:
+        col_right_prj_grid = grid([0.11, 0.2, 0.1, 0.1, 0.1, 0.15, 0.15], 1, vertical_align="top")
+        col_right_prj_grid.markdown(
+            f'<p style="text-align: center;'
+            f'padding: 8px">出力を選択</p>',
+            unsafe_allow_html=True)
+        option_feedback_syo = ["仕様表", "FORM", "仕様表_BLANK"]
+
+        if "selected_option_syo" not in st.session_state:
+            st.session_state.selected_option_syo = option_feedback_syo[0]
+        a_syo = st.session_state.selected_option_syo
+        option = col_right_prj_grid.selectbox('output',
+                                              option_feedback_syo,
+                                              index=option_feedback_syo.index(st.session_state.selected_option_syo),
+                                              placeholder="Select output...",
+                                              label_visibility="collapsed",
+                                              )
+        st.session_state.selected_option_syo = option
+        b_syo = st.session_state.selected_option_syo
+        if a_syo != b_syo:
+            st.rerun()
+        col_right_prj_grid.write('')
+        col_right_prj_grid.write('')
+        col_right_prj_grid.write('')
+        with col_right_prj_grid.container():
+            if option == "仕様表":
+                df = st.session_state.data_syo
+            elif option == "FORM":
+                if 'form' in st.session_state:
+                    df = st.session_state.form
+                else:
+                    df = pd.DataFrame(columns=[f'Column_{i + 1}' for i in range(30)], index=range(1, 101)).fillna("")
+            else:
+                df = st.session_state.formspec_view
+            num_columns = df.shape[1]
+            output = io.BytesIO()
+            with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+                df.to_excel(writer, index=False, sheet_name='Sheet1')
+                workbook = writer.book
+                worksheet = writer.sheets['Sheet1']
+                highlight_format_device_group = workbook.add_format(
+                    {'bg_color': '#535353', 'font_color': '#FFFFFF'})
+                highlight_format_device = workbook.add_format({'bg_color': '#245269', 'font_color': '#FFFFFF'})
+                try:
+                    for row_num, value in enumerate(df['auto'], start=1):
+                        if str(value) is not None:
+                            if str(value) in st.session_state.device_group:
+                                for col_num in range(num_columns):
+                                    worksheet.write(row_num, col_num, df.iloc[row_num - 1, col_num],
+                                                    highlight_format_device_group)
+                            if str(value) in st.session_state.device:
+                                for col_num in range(num_columns):
+                                    worksheet.write(row_num, col_num, df.iloc[row_num - 1, col_num],
+                                                    highlight_format_device)
+
+                except:
+                    pass
+            output.seek(0)
+
+            if option == "仕様表":
+                file_name = f"仕様表_{str(st.session_state.code).upper()}.xlsx"
+            elif option == '仕様表_BLANK':
+                file_name = "仕様表_BLANK.xlsx"
+            else:
+                file_name = "仕様表_FORM.xlsx"
+            st.markdown('<span class="button-green"></span>', unsafe_allow_html=True)
+
+            button_download_syo = st.download_button(label="ダウンロード", data=output, use_container_width=True,
+                                                     icon=":material/cloud_download:",
+                                                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                                     key="button_download_syo",
+                                                     file_name=file_name,
+                                                     disabled=not (st.session_state.code != "" or option == 'FORM')
+                                                     )
+
+        with col_right_prj_grid.container():
+
+            st.markdown('<span class="button-green"></span>', unsafe_allow_html=True)
+            button_save_syo = st.button("保存", use_container_width=True, icon=":material/save:",
+                                        disabled=not (option in ['仕様表'] and st.session_state.code != ""))
+            if button_save_syo:
+                st.session_state.view_syo_complete = False
+                st.session_state.load_syo_complete = False
+                st.session_state.create_form_complete = False
+                st.session_state.create_syo_complete = False
+                modal_save_syo.open()
+        if modal_save_syo.is_open():
+            with modal_save_syo.container():
+                with st.spinner(text="In progress..."):
+                    result_querry_region_4_gray, result_querry_region_4_blue = get_gray_blue(
+                        st.session_state.code)
+                    df, df_1 = dataframe_convert(st.session_state.data_syo_view, st.session_state.code,
+                                                 result_querry_region_4_gray,
+                                                 result_querry_region_4_blue)
+                    update_data_new(st.session_state.code, df, df_1)
+                    st.session_state.save_syo_complete = True
+                    st.session_state.message_12 = 'Save Completed!!!'
+                    modal_save_syo.close()
+
+        if st.session_state.save_syo_complete:
+            if 'message_12' in st.session_state:
+                st.success(st.session_state.message_12)
+
+        with col_right_prj_grid.container(border=True, key="view_inf_output"):
+
+            if option == "仕様表":
+                st.session_state.data_syo_view = st.data_editor(st.session_state.data_syo, height=625, width=10000,
+                                                                disabled=['auto', 'gr', 'keyword',
+                                                                          'CADICS ID', 'group_key_map', 'default'])
+            elif option == "FORM":
+                form_df_view = st.data_editor(st.session_state.form, height=625, width=10000,
+                                              disabled=['auto', 'gr', 'keyword',
+                                                        'CADICS ID', 'group_key_map', 'default'])
+            else:
+                st.session_state.formspec_view = st.data_editor(st.session_state.formspec, height=625, width=10000)
+
+
+*********************************************************file function_database_new.py
+import pandas as pd
+import streamlit
+from sqlalchemy import ForeignKeyConstraint, Column, String, Integer, ForeignKey, create_engine, update, and_
+from .region1 import *
+from sqlalchemy import func
+import numpy as np
+from ..convert_data_syo import *
+import mysql.connector
+from sqlalchemy.orm import declarative_base, relationship, sessionmaker, aliased
+import streamlit as st
+import decouple
+from hashlib import sha256
+import os
+import shutil
+from xqa_web.app.setting import *
+from xqa_web.app.setting import BASE_DIR_DATAS
+Base = declarative_base()
+
+
+class CommentColumn(Base):
+    __tablename__ = 'comment_column'
+
+    comment_id = Column(Integer, primary_key=True, autoincrement=True, nullable=False)
+    comment_name = Column(String(45), nullable=False, unique=True)
+
+
+class Config(Base):
+    __tablename__ = 'config'
+
+    config_id = Column(Integer, primary_key=True, autoincrement=True, nullable=False)
+    config_name = Column(String(45), nullable=False, unique=True)
+
+
+class Device(Base):
+    __tablename__ = 'device'
+
+    device_name = Column(String(255), primary_key=True, nullable=False)
+    device_group = Column(String(255), nullable=True)
+
+    device_details = relationship("DeviceDetails", back_populates="device")
+    project_devices = relationship("ProjectDevice", back_populates="device")
+
+
+class DeviceDetails(Base):
+    __tablename__ = 'device_details'
+
+    device_details_id = Column(Integer, primary_key=True, autoincrement=True, nullable=False)
+    device_name = Column(String(255), ForeignKey('device.device_name', ondelete='CASCADE', onupdate='CASCADE'),
+                         nullable=False)
+    device_details_name = Column(String(255), nullable=True, unique=True)
+    group_detail = Column(String(255), nullable=True)
+    option_detail = Column(String(500), nullable=True)
+    auto_detail = Column(String(255), nullable=True)
+    group_key_map = Column(String(255), nullable=False, default='default_key')
+    default = Column(String(45))
+
+    device = relationship("Device", back_populates="device_details")
+
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ['device_name'],
+            ['device.device_name']
+        ),
+        {'sqlite_autoincrement': True}
+    )
+
+
+class InformationProject(Base):
+    __tablename__ = 'information_project'
+
+    parameter_name = Column(String(255), primary_key=True, nullable=False)
+    group_infor = Column(String(255), nullable=True)
+    keyword = Column(String(255), nullable=True)
+    auto_infor = Column(String(255), nullable=True)
+
+
+class Lot(Base):
+    __tablename__ = 'lot'
+
+    lot_id = Column(Integer, primary_key=True, autoincrement=True, nullable=False)
+    lot_name = Column(String(45), nullable=False, unique=True)
+
+
+class OptionCode(Base):
+    __tablename__ = 'optioncode'
+
+    config_id = Column(Integer, ForeignKey('config.config_id', ondelete='CASCADE', onupdate='CASCADE'),
+                       primary_key=True, nullable=False)
+    project_id = Column(Integer, ForeignKey('project.project_id', ondelete='CASCADE', onupdate='CASCADE'),
+                        primary_key=True, nullable=False)
+    optioncode_value = Column(String(45), nullable=True)
+
+
+class Project(Base):
+    __tablename__ = 'project'
+
+    project_id = Column(Integer, primary_key=True, autoincrement=True, nullable=False)
+    project_name = Column(String(45), nullable=False, unique=True)
+
+    project_devices = relationship("ProjectDevice", back_populates="project")
+
+
+class ProjectDevice(Base):
+    __tablename__ = 'project_device'
+
+    device_name = Column(String(255), ForeignKey('device.device_name', ondelete='CASCADE', onupdate='CASCADE'),
+                         primary_key=True, nullable=False)
+    project_id = Column(Integer, ForeignKey('project.project_id', ondelete='CASCADE', onupdate='CASCADE'),
+                        primary_key=True, nullable=False)
+
+    device = relationship("Device", back_populates="project_devices")
+    project = relationship("Project", back_populates="project_devices")
+
+
+class ProjectDeviceComment(Base):
+    __tablename__ = 'project_device_comment'
+
+    project_id = Column(Integer, ForeignKey('project.project_id', ondelete='CASCADE', onupdate='CASCADE'),
+                        primary_key=True, nullable=False)
+    device_details_id = Column(Integer,
+                               ForeignKey('device_details.device_details_id', ondelete='CASCADE', onupdate='CASCADE'),
+                               primary_key=True, nullable=False)
+    comment_id = Column(Integer, ForeignKey('comment_column.comment_id', ondelete='CASCADE', onupdate='CASCADE'),
+                        primary_key=True, nullable=False)
+    comment_detail = Column(String(500), nullable=True)
+
+
+class StatusConfigDeviceDetail(Base):
+    __tablename__ = 'status_config_device_detail'
+
+    device_details_id = Column(Integer,
+                               ForeignKey('device_details.device_details_id', ondelete='CASCADE', onupdate='CASCADE'),
+                               primary_key=True, nullable=False)
+    config_id = Column(Integer, ForeignKey('config.config_id', ondelete='CASCADE', onupdate='CASCADE'),
+                       primary_key=True, nullable=False)
+    project_id = Column(Integer, ForeignKey('project.project_id', ondelete='CASCADE', onupdate='CASCADE'),
+                        primary_key=True, nullable=False)
+    status = Column(String(255), nullable=True)
+
+
+class StatusLotConfig(Base):
+    __tablename__ = 'status_lot_config'
+
+    project_id = Column(Integer, ForeignKey('project.project_id', ondelete='CASCADE', onupdate='CASCADE'),
+                        primary_key=True, nullable=False)
+    config_id = Column(Integer, ForeignKey('config.config_id', ondelete='CASCADE', onupdate='CASCADE'),
+                       primary_key=True, nullable=False)
+    lot_id = Column(Integer, ForeignKey('lot.lot_id', ondelete='CASCADE', onupdate='CASCADE'), primary_key=True,
+                    nullable=False)
+    status = Column(String(45), nullable=True)
+
+
+class User(Base):
+    __tablename__ = 'user'
+
+    id = Column(Integer, primary_key=True, autoincrement=True, nullable=False)
+    username = Column(String(50), nullable=False, unique=True)
+    password = Column(String(255), nullable=True)
+    permission = Column(String(45), nullable=True)
+    project = Column(String(255), nullable=False)
+
+
+class ValueInf(Base):
+    __tablename__ = 'value_inf'
+
+    project_id = Column(Integer, ForeignKey('project.project_id', ondelete='CASCADE', onupdate='CASCADE'),
+                        primary_key=True, nullable=False)
+    config_id = Column(Integer, ForeignKey('config.config_id', ondelete='CASCADE', onupdate='CASCADE'),
+                       primary_key=True, nullable=False)
+    parameter_name = Column(String(255),
+                            ForeignKey('information_project.parameter_name', ondelete='CASCADE', onupdate='CASCADE'),
+                            primary_key=True, nullable=False)
+    value = Column(String(45), nullable=True)
+
+
+def connect_db():
+    database_username = DATABASE['USER']
+    database_url = DATABASE['HOST']
+
+    database_password = DATABASE['PASSWORD']
+    database_name = DATABASE['SYO']
+    str_connect = "mysql+mysqlconnector://" + database_username + ":" + database_password + "@" + database_url + "/" + database_name
+    engine = create_engine(str_connect)
+    return engine
+
+
+def log_in(username, password):
+    password = sha256(password.encode('utf-8')).hexdigest()
+    engine = connect_db()
+    Base.metadata.create_all(engine)
+    Session = sessionmaker(bind=engine)
+    session = Session()
+    result = session.query(User.username, User.permission, User.project).filter_by(username=username,
+                                                                                   password=password).first()
+    if result is not None:
+        session.close()
+    else:
+        session.close()
+        result = (username, None, None)
+    return result
+
+
+def frame_empty():
+    data_empty = pd.DataFrame([[""] * 30] * 20)
+    column_names = [f'{i + 1}' for i in range(30)]
+    data_empty = pd.DataFrame(data_empty, columns=column_names)
+    data_empty = data_empty.fillna("")
+    return data_empty
+
+
+def querry_data_syo_hyo(project_name):
+    project_name = project_name.upper()
+    engine = connect_db()
+    Base.metadata.create_all(engine)
+    Session = sessionmaker(bind=engine)
+    session = Session()
+    all_project = [name[0] for name in session.query(Project.project_name).all()]
+    if project_name in all_project:
+        result_querry_region1 = session.query(InformationProject).all()
+        df_1 = region_1(result_querry_region1)
+
+        querry_2 = session.query(ValueInf.parameter_name, Project.project_name, Config.config_name, ValueInf.value) \
+            .join(Project, Project.project_id == ValueInf.project_id) \
+            .join(Config, Config.config_id == ValueInf.config_id) \
+            .filter(Project.project_name == project_name)
+        result_querry_region2 = querry_2.all()
+        df_2 = region_2(result_querry_region2)
+        merged_df_1_2 = pd.merge(df_1, df_2, on='CADICS ID', how='inner')
+
+        StatusDeviceDetailTB = session.query(
+            StatusConfigDeviceDetail.project_id,
+            Project.project_name,
+            StatusConfigDeviceDetail.device_details_id,
+            DeviceDetails.device_details_name,
+            DeviceDetails.device_name,
+            DeviceDetails.option_detail,
+            DeviceDetails.group_detail,
+            DeviceDetails.auto_detail,
+            DeviceDetails.group_key_map,
+            DeviceDetails.default
+        ).join(Project, Project.project_id == StatusConfigDeviceDetail.project_id) \
+            .join(DeviceDetails, DeviceDetails.device_details_id == StatusConfigDeviceDetail.device_details_id) \
+            .group_by(
+            StatusConfigDeviceDetail.device_details_id,
+            StatusConfigDeviceDetail.project_id
+        ).subquery()
+        # result_querry_region_4 = session.query(
+        #     Device.device_group,
+        #     Device.device_name,
+        #     DeviceDetails.auto_detail,
+        #     DeviceDetails.group_detail,
+        #     DeviceDetails.option_detail,
+        #     DeviceDetails.device_details_name,
+        #     DeviceDetails.group_key_map,
+        #     DeviceDetails.default
+        # ).outerjoin(DeviceDetails, Device.device_name == DeviceDetails.device_name).filter(Project.project_name == project_name).all()
+        # index_df_1 = df_1.index.max()
+
+        DeviceProject = session.query(
+            ProjectDevice.project_id,
+            Project.project_name,
+            Device.device_name,
+            Device.device_group
+        ).join(Device, Device.device_name == ProjectDevice.device_name) \
+            .join(Project, Project.project_id == ProjectDevice.project_id) \
+            .subquery()
+
+        result_querry_region_4 = session.query(
+            DeviceProject.c.device_group,
+            DeviceProject.c.device_name,
+            StatusDeviceDetailTB.c.auto_detail,
+            StatusDeviceDetailTB.c.group_detail,
+            StatusDeviceDetailTB.c.option_detail,
+            StatusDeviceDetailTB.c.device_details_name,
+            StatusDeviceDetailTB.c.group_key_map,
+            StatusDeviceDetailTB.c.default,
+        ).outerjoin(
+            StatusDeviceDetailTB,
+            (StatusDeviceDetailTB.c.device_name == DeviceProject.c.device_name) &
+            (StatusDeviceDetailTB.c.project_id == DeviceProject.c.project_id)
+        ).filter(DeviceProject.c.project_name == project_name).all()
+        index_df_1 = df_1.index.max()
+
+
+
+
+        df_4, unique_list_max, unique_list_submax = region_4(result_querry_region_4, index_df_1)
+
+        results_querry_region_7 = session.query(
+            Project.project_name,
+            Config.config_name,
+            Lot.lot_name,
+            OptionCode.optioncode_value,
+            StatusLotConfig.status
+        ).join(
+            StatusLotConfig, Project.project_id == StatusLotConfig.project_id
+        ).join(
+            Config, Config.config_id == StatusLotConfig.config_id
+        ).join(
+            OptionCode,
+            (OptionCode.config_id == StatusLotConfig.config_id) & (OptionCode.project_id == StatusLotConfig.project_id)
+        ).join(
+            Lot, Lot.lot_id == StatusLotConfig.lot_id
+        ).filter(
+            Project.project_name == project_name
+        ).all()
+        index_df_4 = df_4.index.max()
+        df_7 = region_7(results_querry_region_7, index_df_4)
+        querry_region_8 = session.query(
+            Project.project_name,
+            Config.config_name,
+            DeviceDetails.device_name,
+            DeviceDetails.device_details_name,
+            DeviceDetails.group_detail,
+            StatusConfigDeviceDetail.status
+        ).join(DeviceDetails, StatusConfigDeviceDetail.device_details_id == DeviceDetails.device_details_id
+               ).join(
+            Project, StatusConfigDeviceDetail.project_id == Project.project_id
+        ).join(
+            Config, StatusConfigDeviceDetail.config_id == Config.config_id
+        ).filter(
+            Project.project_name == project_name
+        )
+        results_querry_region_8 = querry_region_8.all()
+        df_8 = region_8(results_querry_region_8)
+        # streamlit.write('DF_4: ',df_4)
+        # streamlit.write('DF_8: ',df_8)
+        merged_df_4_8 = pd.merge(df_4, df_8, on=['gr', 'CADICS ID', 'device_name'], how='left')
+        # st.write('merged_df_4_8: ',merged_df_4_8)
+        try:
+            merged_df_4_8.set_index(df_4.index, inplace=True)
+        except:
+            merged_df_4_8.index = merged_df_4_8.index + 12
+        merged_df_1_2_4_7_8 = pd.concat([merged_df_1_2, merged_df_4_8, df_7], axis=0)
+        results_querry_region_6 = session.query(
+            Project.project_name,
+            DeviceDetails.device_details_name,
+            DeviceDetails.device_name,
+            DeviceDetails.group_detail,
+            CommentColumn.comment_name,
+            ProjectDeviceComment.comment_detail
+        ).join(ProjectDeviceComment, Project.project_id == ProjectDeviceComment.project_id
+               ).join(DeviceDetails, DeviceDetails.device_details_id == ProjectDeviceComment.device_details_id
+                      ).join(CommentColumn, CommentColumn.comment_id == ProjectDeviceComment.comment_id
+                             ).filter(Project.project_name == project_name).all()
+        df_6 = region_6(results_querry_region_6)
+        merged_df_1_2_4_6_7_8 = pd.merge(merged_df_1_2_4_7_8, df_6, on=['gr', 'CADICS ID', 'device_name'], how='left')
+        merged_df_1_2_4_6_7_8 = merged_df_1_2_4_6_7_8.fillna("")
+        merged_df_1_2_4_6_7_8 = merged_df_1_2_4_6_7_8.drop(columns=['device_name'])
+        session.close()
+        st.session_state.message_2 = f'{project_name}: Completed'
+        return merged_df_1_2_4_6_7_8, unique_list_max, unique_list_submax
+    else:
+        session.close()
+        st.error("Project (仕様表) not found in the database.")
+        st.session_state.message_2 = "Model code (仕様表) not found in the database."
+        df_1, merged_df_4_optioncode, unique_list_max, unique_list_submax = update_and_querry_form_data()
+        merge_end = pd.concat([df_1, merged_df_4_optioncode], axis=0).fillna("")
+        return merge_end, unique_list_max, unique_list_submax
+
+
+def update_and_querry_form_data():
+    engine = connect_db()
+    Base.metadata.create_all(engine)
+    Session = sessionmaker(bind=engine)
+    session = Session()
+    result_querry_region1 = session.query(InformationProject).all()
+    df_1 = region_1(result_querry_region1)
+    result_querry_region_4 = session.query(
+        Device.device_group,
+        Device.device_name,
+        DeviceDetails.auto_detail,
+        DeviceDetails.group_detail,
+        DeviceDetails.option_detail,
+        DeviceDetails.device_details_name,
+        DeviceDetails.group_key_map,
+        DeviceDetails.default
+    ).outerjoin(DeviceDetails, Device.device_name == DeviceDetails.device_name).all()
+    index_df_1 = df_1.index.max()
+    if pd.isna(index_df_1):
+        index_df_1 = 11  # Thay thế NaN bằng 1
+    df_4, unique_list_max, unique_list_submax = region_4(result_querry_region_4, index_df_1)
+    result_querry_lot_name = session.query(Lot.lot_name).all()
+    result_querry_lot_name_full = [('OptionCode',)] + result_querry_lot_name
+
+    df_optioncode = pd.DataFrame(np.nan, index=range(len(result_querry_lot_name_full)),
+                                 columns=['auto', 'gr', 'keyword', 'CADICS ID'])
+
+    df_optioncode['CADICS ID'] = [t[0] for t in result_querry_lot_name_full]
+    df_optioncode = df_optioncode.fillna("")
+    merged_df_4_optioncode = pd.concat([df_4, df_optioncode], axis=0)
+    session.close()
+    return df_1, merged_df_4_optioncode, unique_list_max, unique_list_submax
+
+
+def add_function_from_admin(df_end_region3, files):
+    df_end_region3.rename(columns={df_end_region3.columns[0]: 'CADICS ID'}, inplace=True)
+    df_end_region3.loc[df_end_region3['CADICS ID'] == 'SEAT/EQUIP', 'CADICS ID'] = 'SEAT'
+    data_1, data_4_7, unique_list_max, unique_list_submax = update_and_querry_form_data()
+    # st.write("data_1: ",data_1)
+    # st.write("df_end_region3: ",df_end_region3)
+    merge_1_spec = pd.merge(data_1, df_end_region3, on='CADICS ID', how='outer')
+
+    merge_1_spec['order'] = merge_1_spec['CADICS ID'].apply(
+        lambda x: df_end_region3['CADICS ID'].tolist().index(x) if x in df_end_region3[
+            'CADICS ID'].tolist() else float('inf'))
+
+    merge_1_spec = merge_1_spec.sort_values(by='order').drop(columns='order').reset_index(
+        drop=True)
+    # st.write('merge_1_spec: ', merge_1_spec)
+    data_4_7.drop(columns=['device_name'], inplace=True)
+    # st.write('data_4_7: ', data_4_7)
+
+    merge_end = pd.concat([merge_1_spec, data_4_7], axis=0)
+    merger_end = merge_end.fillna("")
+    merger_end = merger_end.astype(str)
+    conf_columns = ['auto', 'gr', 'keyword', 'CADICS ID'] + [f'conf-{str(i).zfill(3)}' for i in
+                                                             range(1, merger_end.shape[1] - 5)] + ['group_key_map',
+                                                                                                   'default']
+    merger_end.columns = conf_columns
+
+    return merger_end, unique_list_max, unique_list_submax
+
+
+def update_data_new(project_name, df, df_1):
+    df_ref = df.copy()
+    df = df.applymap(lambda x: x.strip() if isinstance(x, str) else x)
+    df_1 = df_1.applymap(lambda x: x.strip() if isinstance(x, str) else x)
+    # *******************************************
+    # Tạo một cột mới để đánh dấu các bản ghi trùng lặp
+    df['duplicate_count'] = df.groupby(['CADICS ID', 'device_name']).cumcount()
+
+    # Thêm hậu tố cho các bản ghi trùng lặp
+    df['CADICS ID'] = df.apply(
+        lambda x: f"{x['CADICS ID']}_{x['duplicate_count']}" if x['duplicate_count'] > 0 else x['CADICS ID'], axis=1)
+
+    # Xóa cột duplicate_count
+    df = df.drop(columns=['duplicate_count'])
+    # *******************************************
+    list_error = []
+    project_name = str(project_name).upper()
+    engine = connect_db()
+    Base.metadata.create_all(engine)
+    Session = sessionmaker(bind=engine)
+    session = Session()
+    df.replace({np.nan: ''}, inplace=True)
+    df.loc[df['CADICS ID'] == 'SEAT/EQUIP', 'CADICS ID'] = 'SEAT'
+    df_1.replace({np.nan: ''}, inplace=True)
+
+    existing_project_name = (session.query(Project).filter_by(project_name=project_name).first())
+    if project_name != 'FORM':
+        if existing_project_name is None:
+            max_project_id = session.query(func.max(Project.project_id)).scalar()
+            if max_project_id is None:
+                max_project_id = 0
+            try:
+                new_project_name = Project(project_id=max_project_id + 1, project_name=project_name)
+                session.add(new_project_name)
+            except mysql.connector.IntegrityError as e:
+                list_error.append((project_name, e))
+        else:
+            project_name_ = str(project_name).upper()
+            session.query(Project).filter(Project.project_name == project_name_).delete()
+            session.commit()
+            max_project_id = session.query(func.max(Project.project_id)).scalar()
+            if max_project_id is None:
+                max_project_id = 0
+            try:
+                new_project_name = Project(project_id=max_project_id + 1, project_name=project_name)
+                session.add(new_project_name)
+            except mysql.connector.IntegrityError as e:
+                list_error.append((project_name, e))
+
+        # 5.---------------------------table device--------------------------
+
+        list_existing_device_name = (session.query(Device.device_name, Device.device_group).all())
+        device_table_df = device_table(df_ref)
+        list_device_table_df = list(device_table_df.itertuples(index=False, name=None))
+        set_list_existing_device_name = set(list_existing_device_name)
+        list_check_device = list(set([tup[0] for tup in set_list_existing_device_name]))
+        list_only_in_list_device_table_df_insert = [item for item in list_device_table_df if
+                                                    item not in set_list_existing_device_name and item[
+                                                        0] not in list_check_device]
+
+        list_only_in_list_device_table_df_update = [item for item in list_device_table_df if
+                                                    item not in set_list_existing_device_name and item[
+                                                        0] in list_check_device]
+
+        if list_only_in_list_device_table_df_insert:
+            device_table_df_add = pd.DataFrame(list_only_in_list_device_table_df_insert,
+                                               columns=device_table_df.columns)
+            for index, row in device_table_df_add.iterrows():
+                try:
+                    new_querry_device_table = Device(device_name=row['device_name'], device_group=row['device_group'])
+                    session.add(new_querry_device_table)
+                except mysql.connector.IntegrityError as e:
+                    list_error.append(("table device", row['device_name'], e))
+                    session.rollback()
+
+        if list_only_in_list_device_table_df_update:
+            device_table_df_add = pd.DataFrame(list_only_in_list_device_table_df_update,
+                                               columns=device_table_df.columns)
+            for index, row in device_table_df_add.iterrows():
+                try:
+                    existing_record = session.query(Device).filter_by(
+                        device_name=row['device_name']
+                    ).first()
+                    if existing_record is not None:
+                        stmt = (
+                            update(Device).
+                            where(Device.device_name == row['device_name']).
+                            values(device_group=row['device_group'])
+                        )
+                        session.execute(stmt)
+                except mysql.connector.IntegrityError as e:
+                    print(e)
+                    session.rollback()
+        # 6.------------------------table device_detail--------------------------
+        list_existing_device_detail_name = (
+            session.query(DeviceDetails.device_name, DeviceDetails.device_details_name,
+                          DeviceDetails.group_detail, DeviceDetails.option_detail, DeviceDetails.auto_detail).all())
+
+        device_detail_table_df = device_detail_table(df)
+        list_device_detail_table_df = list(device_detail_table_df.itertuples(index=False, name=None))
+        set_list_existing_device_detail_name = set(list_existing_device_detail_name)
+        list_check_device_detail = list(
+            set([(tup[0], tup[1]) for tup in set_list_existing_device_detail_name]))
+        list_only_in_list_device_detail_table_df_insert = [item for item in list_device_detail_table_df if
+                                                           item not in set_list_existing_device_detail_name and (
+                                                               item[0], item[
+                                                                   1]) not in list_check_device_detail]
+
+        list_only_in_list_device_detail_table_df_update = [item for item in list_device_detail_table_df if
+                                                           item not in set_list_existing_device_detail_name and (
+                                                               item[0], item[
+                                                                   1]) in list_check_device_detail]
+        max_device_detail_id = session.query(func.max(DeviceDetails.device_details_id)).scalar()
+        if max_device_detail_id is None:
+            max_device_detail_id = 0
+
+        list_error = []
+        if list_only_in_list_device_detail_table_df_insert:
+            device_detail_table_df_add = pd.DataFrame(list_only_in_list_device_detail_table_df_insert,
+                                                      columns=device_detail_table_df.columns)
+            for index, row in device_detail_table_df_add.iterrows():
+                try:
+                    new_device_detail_id = max_device_detail_id + 1  # Tăng ID cho mỗi lần lặp
+
+                    new_querry_device_detail_table = DeviceDetails(
+                        device_details_id=new_device_detail_id,
+                        device_name=row['device_name'],
+                        device_details_name=row['device_details_name'],
+                        group_detail=row['group_detail'],
+                        option_detail=row['option_detail'],
+                        auto_detail=row['auto_detail']
+                    )
+                    session.add(new_querry_device_detail_table)
+
+                    max_device_detail_id = new_device_detail_id
+                except Exception as e:
+                    list_error.append(row['device_details_name'])
+                    session.rollback()
+
+        if list_only_in_list_device_detail_table_df_update:
+            device_detail_table_df_update = pd.DataFrame(list_only_in_list_device_detail_table_df_update,
+                                                         columns=device_detail_table_df.columns)
+            for index, row in device_detail_table_df_update.iterrows():
+                try:
+                    existing_record = session.query(DeviceDetails).filter_by(
+                        device_details_name=row['device_details_name']
+                    ).first()
+                    if existing_record is not None:
+                        stmt = (
+                            update(DeviceDetails).
+                            where(DeviceDetails.device_details_name == row['device_details_name']).
+                            values(
+                                # device_name=row['device_name'],
+                                auto_detail=row['auto_detail'])
+                        )
+                        session.execute(stmt)
+
+                except Exception as e:
+                    session.rollback()
+    elif project_name == 'FORM':
+        # 5.---------------------------table device--------------------------
+        list_existing_device_name = (session.query(Device.device_name, Device.device_group).all())
+        device_table_df = device_table(df_ref)
+        list_device_table_df = list(device_table_df.itertuples(index=False, name=None))
+        set_list_existing_device_name = set(list_existing_device_name)
+        list_check_device_name = list(set([tup[0] for tup in set_list_existing_device_name]))
+        list_check_device_group = list(set([tup[1] for tup in set_list_existing_device_name]))
+        list_only_in_list_device_table_df_insert = [item for item in list_device_table_df if
+                                                    item not in set_list_existing_device_name and item[
+                                                        0] not in list_check_device_name]
+
+        list_only_in_list_device_table_df_update = [item for item in list_device_table_df if
+                                                    item not in set_list_existing_device_name and item[
+                                                        0] in list_check_device_name]
+        list_device_name_upload_form = [t[0] for t in list_device_table_df]
+        list_device_group_upload_form = [t[1] for t in list_device_table_df]
+        list_delete_device_name = list(set(list_check_device_name) - set(list_device_name_upload_form))
+        list_delete_device_group = list(set(list_check_device_group) - set(list_device_group_upload_form))
+
+        if list_only_in_list_device_table_df_insert:
+            device_table_df_add = pd.DataFrame(list_only_in_list_device_table_df_insert,
+                                               columns=device_table_df.columns)
+            for index, row in device_table_df_add.iterrows():
+                try:
+                    new_querry_device_table = Device(device_name=row['device_name'], device_group=row['device_group'])
+                    session.add(new_querry_device_table)
+                except mysql.connector.IntegrityError as e:
+                    list_error.append(("table device", row['device_name'], e))
+                    session.rollback()
+
+        if list_only_in_list_device_table_df_update:
+            device_table_df_add = pd.DataFrame(list_only_in_list_device_table_df_update,
+                                               columns=device_table_df.columns)
+            for index, row in device_table_df_add.iterrows():
+                try:
+                    existing_record = session.query(Device).filter_by(
+                        device_name=row['device_name']
+                    ).first()
+                    if existing_record is not None:
+                        stmt = (
+                            update(Device).
+                            where(Device.device_name == row['device_name']).
+                            values(device_group=row['device_group'])
+                        )
+                        session.execute(stmt)
+                except mysql.connector.IntegrityError as e:
+                    session.rollback()
+        if list_delete_device_group:
+            for device_group_delete in list_delete_device_group:
+                session.query(Project).filter(Device.device_group == device_group_delete).delete()
+        if list_delete_device_name:
+            for device_name_delete in list_delete_device_name:
+                session.query(Device).filter(Device.device_name == device_name_delete).delete()
+        session.commit()
+
+        # 6.------------------------table device_detail--------------------------
+        list_existing_device_detail_name = (
+            session.query(DeviceDetails.device_name, DeviceDetails.device_details_name,
+                          DeviceDetails.group_detail, DeviceDetails.option_detail, DeviceDetails.auto_detail,
+                          DeviceDetails.group_key_map, DeviceDetails.default).all())
+
+        device_detail_table_df = device_detail_table(df)
+        list_device_detail_table_df = list(device_detail_table_df.itertuples(index=False, name=None))
+        set_list_existing_device_detail_name = set(list_existing_device_detail_name)
+        list_check_device_detail = list(
+            set([(tup[0], tup[1]) for tup in set_list_existing_device_detail_name]))
+        list_only_in_list_device_detail_table_df_insert = [item for item in list_device_detail_table_df if
+                                                           item not in set_list_existing_device_detail_name and (
+                                                               item[0], item[
+                                                                   1]) not in list_check_device_detail]
+
+        list_only_in_list_device_detail_table_df_update = [item for item in list_device_detail_table_df if
+                                                           item not in set_list_existing_device_detail_name and (
+                                                               item[0], item[
+                                                                   1]) in list_check_device_detail]
+        list_device_name_device_detail_name_upload_form = [(t[0], t[1]) for t in list_device_detail_table_df]
+        list_delete_device_name_device_detail_name = list(
+            set(list_check_device_detail) - set(list_device_name_device_detail_name_upload_form))
+        max_device_detail_id = session.query(func.max(DeviceDetails.device_details_id)).scalar()
+        if max_device_detail_id is None:
+            max_device_detail_id = 0
+
+        list_error = []
+        if list_only_in_list_device_detail_table_df_insert:
+            device_detail_table_df_add = pd.DataFrame(list_only_in_list_device_detail_table_df_insert,
+                                                      columns=device_detail_table_df.columns)
+            for index, row in device_detail_table_df_add.iterrows():
+                try:
+                    new_device_detail_id = max_device_detail_id + 1  # Tăng ID cho mỗi lần lặp
+
+                    new_querry_device_detail_table = DeviceDetails(
+                        device_details_id=new_device_detail_id,
+                        device_name=row['device_name'],
+                        device_details_name=row['device_details_name'],
+                        group_detail=row['group_detail'],
+                        option_detail=row['option_detail'],
+                        auto_detail=row['auto_detail'],
+                        group_key_map=row['group_key_map'],
+                        default=row['default']
+                    )
+                    session.add(new_querry_device_detail_table)
+
+                    max_device_detail_id = new_device_detail_id
+                except Exception as e:
+                    list_error.append(row['device_details_name'])
+                    session.rollback()
+
+        if list_only_in_list_device_detail_table_df_update:
+            device_detail_table_df_update = pd.DataFrame(list_only_in_list_device_detail_table_df_update,
+                                                         columns=device_detail_table_df.columns)
+            for index, row in device_detail_table_df_update.iterrows():
+                try:
+                    existing_record = session.query(DeviceDetails).filter_by(
+                        device_details_name=row['device_details_name'],
+                        device_name=row['device_name']
+                    ).first()
+                    if existing_record is not None:
+                        stmt = (
+                            update(DeviceDetails).
+                            where(DeviceDetails.device_details_name == row['device_details_name']).
+                            values(group_detail=row['group_detail'], option_detail=row['option_detail'],
+                                   auto_detail=row['auto_detail'], group_key_map=row['group_key_map'],
+                                   default=row['default'])
+                        )
+                        session.execute(stmt)
+
+                except Exception as e:
+                    session.rollback()
+        if list_delete_device_name_device_detail_name:
+            for item in list_delete_device_name_device_detail_name:
+                session.query(DeviceDetails).filter(DeviceDetails.device_name == item[0],
+                                                    DeviceDetails.device_details_name == item[1]).delete()
+
+        # 7.---------------------------table information_project------------------------------
+        list_existing_information_project = (
+            session.query(InformationProject.parameter_name, InformationProject.group_infor,
+                          InformationProject.keyword, InformationProject.auto_infor).all())
+
+        information_project_table_df = information_project_table(df)
+
+        list_information_project_table_df = list(information_project_table_df.itertuples(index=False, name=None))
+        set_list_existing_information_project = set(list_existing_information_project)
+        list_check_information_project = list(set([tup[0] for tup in set_list_existing_information_project]))
+        list_only_in_list_information_project_table_df_insert = [item for item in list_information_project_table_df if
+                                                                 item not in set_list_existing_information_project and
+                                                                 item[
+                                                                     0] not in list_check_information_project]
+
+        list_only_in_list_information_project_table_df_update = [item for item in list_information_project_table_df if
+                                                                 item not in set_list_existing_information_project and
+                                                                 item[
+                                                                     0] in list_check_information_project]
+        if list_only_in_list_information_project_table_df_insert:
+            information_project_table_df_add = pd.DataFrame(list_only_in_list_information_project_table_df_insert,
+                                                            columns=information_project_table_df.columns)
+            for index, row in information_project_table_df_add.iterrows():
+                try:
+                    new_querry_device_information_project_table = InformationProject(parameter_name=row['CADICS ID'],
+                                                                                     group_infor=row['Gr'],
+                                                                                     keyword=row['Keyword'],
+                                                                                     auto_infor=row['auto'])
+                    session.add(new_querry_device_information_project_table)
+                except Exception as e:
+                    list_error.append(row['CADICS ID'])
+
+        if list_only_in_list_information_project_table_df_update:
+            information_project_table_df_add = pd.DataFrame(list_only_in_list_information_project_table_df_update,
+                                                            columns=information_project_table_df.columns)
+            for index, row in information_project_table_df_add.iterrows():
+                try:
+                    existing_record = session.query(InformationProject).filter_by(
+                        parameter_name=row['CADICS ID']
+                    ).first()
+                    if existing_record is not None:
+                        stmt = (
+                            update(InformationProject).
+                            where(InformationProject.parameter_name == row['CADICS ID']).
+                            values(group_infor=row['Gr'], keyword=row['Keyword'],
+                                   auto_infor=row['auto_infor'])
+                        )
+                        session.execute(stmt)
+                except Exception as e:
+                    list_error.append(row['CADICS ID'])
+    session.commit()
+    if df.shape[1] != 9:
+        # 2.----------------------table config--------------------------------
+        list_existing_config_name = (session.query(Config.config_name).all())
+        config_table_df = config_table(df)
+        list_config_table_df = list(config_table_df.itertuples(index=False, name=None))
+
+        set_list_existing_config_name = set(list_existing_config_name)
+        only_in_list_config_table_df = [item for item in list_config_table_df if
+                                        item not in set_list_existing_config_name]
+
+        config_table_df_final = pd.DataFrame(only_in_list_config_table_df, columns=['config_name'])
+        max_config_id = session.query(func.max(Config.config_id)).scalar()
+        for index, row in config_table_df_final.iterrows():
+            try:
+                if max_config_id is None:
+                    max_config_id = 1
+                elif index == 0 and max_config_id is not None:
+                    max_config_id += 1
+                new_config = Config(config_id=max_config_id + index, config_name=row['config_name'])
+                session.add(new_config)
+            except mysql.connector.IntegrityError as e:
+                list_error.append(("table config", row['config_name'], e))
+                session.rollback()
+
+        # 3.---------------------table lot---------------------------------------
+        list_existing_lot_name = (session.query(Lot.lot_name).all())
+        lot_table_df = lot_table(df_1)
+        list_lot_table_df = list(lot_table_df.itertuples(index=False, name=None))
+        set_list_existing_lot_name = set(list_existing_lot_name)
+
+        only_in_list_lot_table_df = [item for item in list_lot_table_df if item not in set_list_existing_lot_name]
+        if only_in_list_lot_table_df:
+            max_lot_id = session.query(func.max(Lot.lot_id)).scalar()
+            lot_table_df_final = pd.DataFrame(only_in_list_lot_table_df, columns=['lot_name'])
+            for index, row in lot_table_df_final.iterrows():
+                try:
+                    if max_lot_id is None:
+                        max_lot_id = 1
+                        new_lot = Lot(lot_id=max_lot_id + index, lot_name=row['lot_name'])
+                    else:
+                        new_lot = Lot(lot_id=max_lot_id + index + 1, lot_name=row['lot_name'])
+
+                    session.add(new_lot)
+                except mysql.connector.IntegrityError as e:
+                    list_error.append(("table lot", row['lot_name'], e))
+                    session.rollback()
+
+        # 4.-----------------------table comment_column--------------------------------------
+        list_existing_comment_name = (session.query(CommentColumn.comment_name).all())
+        comment_column_table_df = comment_column_table(df)
+        list_comment_table_df = list(comment_column_table_df.itertuples(index=False, name=None))
+        set_list_existing_comment_name = set(list_existing_comment_name)
+
+        only_in_list_comment_table_df = [item for item in list_comment_table_df if
+                                         item not in set_list_existing_comment_name]
+        if only_in_list_comment_table_df:
+            max_comment_id = session.query(func.max(CommentColumn.comment_id)).scalar()
+            comment_df = pd.DataFrame(only_in_list_comment_table_df, columns=['Comment'])
+            for index, row in comment_df.iterrows():
+                try:
+                    if max_comment_id is None:
+                        max_comment_id = 1
+                    elif index == 0 and max_comment_id is not None:
+                        max_comment_id += 1
+                    new_comment = CommentColumn(comment_id=max_comment_id + index, comment_name=row['Comment'])
+                    session.add(new_comment)
+                except mysql.connector.IntegrityError as e:
+                    list_error.append(("table comment_column", row['Comment'], e))
+                    session.rollback()
+
+        # 7.---------------------------table information_project------------------------------
+        list_existing_information_project = (
+            session.query(InformationProject.parameter_name, InformationProject.group_infor,
+                          InformationProject.keyword, InformationProject.auto_infor).all())
+
+        information_project_table_df = information_project_table(df)
+
+        list_information_project_table_df = list(information_project_table_df.itertuples(index=False, name=None))
+        set_list_existing_information_project = set(list_existing_information_project)
+        list_check_information_project = list(set([tup[0] for tup in set_list_existing_information_project]))
+        list_only_in_list_information_project_table_df_insert = [item for item in list_information_project_table_df if
+                                                                 item not in set_list_existing_information_project and
+                                                                 item[
+                                                                     0] not in list_check_information_project]
+
+        list_only_in_list_information_project_table_df_update = [item for item in list_information_project_table_df if
+                                                                 item not in set_list_existing_information_project and
+                                                                 item[
+                                                                     0] in list_check_information_project]
+        if list_only_in_list_information_project_table_df_insert:
+            information_project_table_df_add = pd.DataFrame(list_only_in_list_information_project_table_df_insert,
+                                                            columns=information_project_table_df.columns)
+            for index, row in information_project_table_df_add.iterrows():
+                try:
+                    new_querry_device_information_project_table = InformationProject(parameter_name=row['CADICS ID'],
+                                                                                     group_infor=row['Gr'],
+                                                                                     keyword=row['Keyword'],
+                                                                                     auto_infor=row['auto'])
+                    session.add(new_querry_device_information_project_table)
+                except Exception as e:
+                    list_error.append(row['CADICS ID'])
+
+        if list_only_in_list_information_project_table_df_update:
+            information_project_table_df_add = pd.DataFrame(list_only_in_list_information_project_table_df_update,
+                                                            columns=information_project_table_df.columns)
+            for index, row in information_project_table_df_add.iterrows():
+                try:
+                    existing_record = session.query(InformationProject).filter_by(
+                        parameter_name=row['CADICS ID']
+                    ).first()
+                    if existing_record is not None:
+                        stmt = (
+                            update(InformationProject).
+                            where(InformationProject.parameter_name == row['CADICS ID']).
+                            values(group_infor=row['Gr'], keyword=row['Keyword'],
+                                   auto_infor=row['auto_infor'])
+                        )
+                        session.execute(stmt)
+                except Exception as e:
+                    list_error.append(row['CADICS ID'])
+
+        # .---------------------------Querry 7 table under------------------------------
+        querry_config_in_DB = session.query(Config).all()
+        config_data_after_querry = [(config.config_id, config.config_name) for config in querry_config_in_DB]
+        config_table_df_querry = pd.DataFrame(config_data_after_querry, columns=['config_id', 'config_name'])
+
+        querry_project_in_DB = session.query(Project).all()
+        project_data_after_querry = [(project.project_id, project.project_name) for project in querry_project_in_DB]
+        project_table_df_querry = pd.DataFrame(project_data_after_querry, columns=['project_id', 'project_name'])
+
+        querry_lot_in_DB = session.query(Lot).all()
+        lot_data_after_querry = [(lot.lot_id, lot.lot_name) for lot in querry_lot_in_DB]
+        lot_table_df_querry = pd.DataFrame(lot_data_after_querry, columns=['lot_id', 'lot_name'])
+
+        querry_comment_column_in_DB = session.query(CommentColumn).all()
+        comment_column_data_after_querry = [(comment.comment_id, comment.comment_name) for comment in
+                                            querry_comment_column_in_DB]
+        comment_column_table_df_querry = pd.DataFrame(comment_column_data_after_querry,
+                                                      columns=['comment_id', 'comment_name'])
+
+        querry_device_details_in_DB = session.query(DeviceDetails.device_details_id,
+                                                    DeviceDetails.device_details_name, DeviceDetails.device_name).all()
+        device_details_data_after_querry = [
+            (device_details.device_details_id, device_details.device_details_name, device_details.device_name) for
+            device_details in querry_device_details_in_DB]
+        device_details_table_df_querry = pd.DataFrame(device_details_data_after_querry,
+                                                      columns=['device_details_id', 'device_details_name',
+                                                               'device_name'])
+
+        # 8.-------------------table optioncode--------------------------------------
+        list_existing_optioncode = (
+            session.query(OptionCode.optioncode_value, OptionCode.config_id, OptionCode.project_id).all())
+
+        optioncode_table_df_temp = optioncode_table(df_1, project_name)
+
+        optioncode_table_df_merge_config = pd.merge(optioncode_table_df_temp, config_table_df_querry, on='config_name',
+                                                    how='left')
+        optioncode_table_df = pd.merge(optioncode_table_df_merge_config, project_table_df_querry, on='project_name',
+                                       how='left')
+
+        optioncode_table_df.drop(columns=['config_name', 'project_name'], inplace=True)
+        optioncode_table_df.fillna('null', inplace=True)
+
+        list_OptionCode_table_df = list(optioncode_table_df.itertuples(index=False, name=None))
+        set_list_existing_optioncode = set(list_existing_optioncode)
+        list_only_in_list_optioncode_table_df = [item for item in list_OptionCode_table_df if
+                                                 item not in set_list_existing_optioncode]
+        if list_only_in_list_optioncode_table_df:
+            optioncode_table_df_add = pd.DataFrame(list_only_in_list_optioncode_table_df,
+                                                   columns=optioncode_table_df.columns)
+            for index, row in optioncode_table_df_add.iterrows():
+                try:
+                    existing_record = session.query(OptionCode).filter_by(
+                        config_id=row['config_id'],
+                        project_id=row['project_id']
+                    ).first()
+                    if existing_record is not None:
+                        stmt = (
+                            update(OptionCode).
+                            where(
+                                and_(
+                                    OptionCode.config_id == row['config_id'],
+                                    OptionCode.project_id == row['project_id']
+                                )
+                            ).
+                            values(optioncode_value=row['optioncode_value'])
+                        )
+                        session.execute(stmt)
+                    else:
+                        new_querry_optioncode_table = OptionCode(config_id=row['config_id'],
+                                                                 project_id=row['project_id'],
+                                                                 optioncode_value=row['optioncode_value'])
+                        session.add(new_querry_optioncode_table)
+                except Exception as e:
+                    list_error.append(row['CADICS ID'])
+                    session.rollback()
+
+        # 9.-------------------------table project_device-------------------------
+        list_existing_project_device = (
+            session.query(ProjectDevice.device_name, ProjectDevice.project_id).all())
+
+        project_device = project_device_table(df_ref, project_name)
+        project_device_table_df_temp = pd.merge(project_device, project_table_df_querry, on='project_name',
+                                                how='left')
+        project_device_table_df_temp.drop(columns=['project_name'], inplace=True)
+        project_device_table_df_temp.fillna('null', inplace=True)
+
+        list_project_device_table_df = list(project_device_table_df_temp.itertuples(index=False, name=None))
+        set_list_existing_project_device = set(list_existing_project_device)
+
+        list_only_in_list_project_device_table_df = [item for item in list_project_device_table_df if
+                                                     item not in set_list_existing_project_device]
+
+        if list_only_in_list_project_device_table_df:
+            project_device_table_df = pd.DataFrame(list_only_in_list_project_device_table_df,
+                                                   columns=project_device_table_df_temp.columns)
+            for index, row in project_device_table_df.iterrows():
+                try:
+                    new_querry_project_device_table = ProjectDevice(device_name=row['device_name'],
+                                                                    project_id=row['project_id'])
+                    session.add(new_querry_project_device_table)
+                except Exception as e:
+                    print(e)
+                    session.rollback()
+
+        # 10.--------------------------table value_inf------------------------------------
+        list_existing_value_inf = (
+            session.query(ValueInf.parameter_name, ValueInf.value, ValueInf.project_id, ValueInf.config_id).all())
+
+        value_inf = value_inf_table(df.loc[:11, :])
+        value_inf_table_df_merge_prj = pd.merge(value_inf, project_table_df_querry, on='project_name',
+                                                how='left')
+        value_inf_table_df_temp = pd.merge(value_inf_table_df_merge_prj, config_table_df_querry, on='config_name',
+                                           how='left')
+        value_inf_table_df_temp.drop(columns=['project_name', 'config_name'], inplace=True)
+        value_inf_table_df_temp.fillna('null', inplace=True)
+
+        value_inf_table_df_temp['value'] = value_inf_table_df_temp['value'].apply(
+            lambda x: str(x) if x is not None else '')
+
+        list_value_inf_table_df = list(value_inf_table_df_temp.itertuples(index=False, name=None))
+        set_list_existing_value_inf = set(list_existing_value_inf)
+        list_check_value_inf = list(
+            set([(tup[0], tup[2], tup[3]) for tup in set_list_existing_value_inf]))
+        list_only_in_list_value_inf_table_df_insert = [item for item in list_value_inf_table_df if
+                                                       item not in set_list_existing_value_inf and (
+                                                           item[0], item[2], item[3]) not in list_check_value_inf]
+        list_only_in_list_value_inf_table_df_update = [item for item in list_value_inf_table_df if
+                                                       item not in set_list_existing_value_inf and (
+                                                           item[0], item[2], item[3]) in list_check_value_inf]
+        if list_only_in_list_value_inf_table_df_insert:
+
+            value_inf_table_df = pd.DataFrame(list_only_in_list_value_inf_table_df_insert,
+                                              columns=value_inf_table_df_temp.columns)
+            for index, row in value_inf_table_df.iterrows():
+
+                try:
+                    new_querry_value_inf_table = ValueInf(config_id=row['config_id'],
+                                                          parameter_name=row['parameter_name'],
+                                                          value=row['value'], project_id=row['project_id'])
+                    session.add(new_querry_value_inf_table)
+                    session.commit()
+                except Exception as e:
+                    print(e)
+                    session.rollback()
+        if list_only_in_list_value_inf_table_df_update:
+            value_inf_table_df = pd.DataFrame(list_only_in_list_value_inf_table_df_update,
+                                              columns=value_inf_table_df_temp.columns)
+            for index, row in value_inf_table_df.iterrows():
+                try:
+                    stmt = (
+                        update(ValueInf).
+                        where(
+                            and_(
+                                ValueInf.parameter_name == row['parameter_name'],
+                                ValueInf.config_id == row['config_id'],
+                                ValueInf.project_id == row['project_id']
+                            )
+                        ).
+                        values(comment_detail=row['comment_detail'])
+                    )
+                    session.execute(stmt)
+                except Exception as e:
+                    print(e)
+                    session.rollback()
+
+        # 11.---------------------------------table status_lot_config---------------------------
+        list_existing_status_lot_config = (
+            session.query(StatusLotConfig.status, StatusLotConfig.project_id, StatusLotConfig.config_id,
+                          StatusLotConfig.lot_id).all())
+
+        status_lot_config = status_lot_config_table(df_1, project_name)
+        status_lot_config_table_df_merge_prj = pd.merge(status_lot_config, project_table_df_querry, on='project_name',
+                                                        how='left')
+        status_lot_config_table_df_merge_config = pd.merge(status_lot_config_table_df_merge_prj, config_table_df_querry,
+                                                           on='config_name',
+                                                           how='left')
+        status_lot_config_table_df_temp = pd.merge(status_lot_config_table_df_merge_config, lot_table_df_querry,
+                                                   on='lot_name',
+                                                   how='left')
+
+        status_lot_config_table_df_temp.drop(columns=['project_name', 'config_name', 'lot_name'], inplace=True)
+        status_lot_config_table_df_temp.fillna('null', inplace=True)
+
+        list_status_lot_config_table_df = list(status_lot_config_table_df_temp.itertuples(index=False, name=None))
+        set_list_existing_status_lot_config = set(list_existing_status_lot_config)
+        list_only_in_list_status_lot_config_table_df = [item for item in list_status_lot_config_table_df if
+                                                        item not in set_list_existing_status_lot_config]
+
+        if list_only_in_list_status_lot_config_table_df:
+            status_lot_config_table_df = pd.DataFrame(list_only_in_list_status_lot_config_table_df,
+                                                      columns=status_lot_config_table_df_temp.columns)
+            for index, row in status_lot_config_table_df.iterrows():
+                try:
+                    existing_record = session.query(StatusLotConfig).filter_by(
+                        config_id=row['config_id'],
+                        project_id=row['project_id'],
+                        lot_id=row['lot_id']
+                    ).first()
+                    if existing_record is not None:
+                        # Câu lệnh cập nhật ORM
+                        stmt = (
+                            update(StatusLotConfig).
+                            where(
+                                and_(
+                                    StatusLotConfig.config_id == row['config_id'],
+                                    StatusLotConfig.project_id == row['project_id'],
+                                    StatusLotConfig.lot_id == row['lot_id']
+                                )
+                            ).
+                            values(status=row['status'])
+                        )
+                        session.execute(stmt)
+                    else:
+                        new_querry_status_lot_config_table = StatusLotConfig(config_id=row['config_id'],
+                                                                             lot_id=row['lot_id'],
+                                                                             status=row['status'],
+                                                                             project_id=row['project_id'])
+                        session.add(new_querry_status_lot_config_table)
+                except Exception as e:
+                    print(e)
+                    session.rollback()
+
+        # 12.---------------------------------table project_device_comment--------------------
+        list_existing_project_device_comment = (
+            session.query(ProjectDeviceComment.comment_detail, ProjectDeviceComment.project_id,
+                          ProjectDeviceComment.comment_id, ProjectDeviceComment.device_details_id).all())
+        #st.write('list_existing_project_device_comment: ', list_existing_project_device_comment)
+        project_device_comment = project_device_comment_table(df.loc[11:, ], project_name)
+        if not project_device_comment.empty:
+            project_device_comment_table_df_merge_prj = pd.merge(project_device_comment, project_table_df_querry,
+                                                                 on='project_name',
+                                                                 how='left')
+            project_device_comment_table_df_merge_cmt = pd.merge(project_device_comment_table_df_merge_prj,
+                                                                 comment_column_table_df_querry, on='comment_name',
+                                                                 how='left')
+            project_device_comment_table_df_temp = pd.merge(project_device_comment_table_df_merge_cmt,
+                                                            device_details_table_df_querry,
+                                                            on=['device_details_name', 'device_name'],
+                                                            how='left')
+            project_device_comment_table_df_temp.drop(columns=['project_name', 'comment_name', 'device_details_name'],
+                                                      inplace=True)
+
+            project_device_comment_table_df_temp.fillna('null', inplace=True)
+
+            list_project_device_comment_table_df = list(
+                project_device_comment_table_df_temp.itertuples(index=False, name=None))
+            set_list_existing_project_device_comment = set(list_existing_project_device_comment)
+            list_check_project_device_comment = list(
+                set([(tup[1], tup[2], tup[3]) for tup in set_list_existing_project_device_comment]))
+            # st.write("list_check_project_device_comment: ", list_check_project_device_comment)
+            list_only_in_list_project_device_comment_table_df_insert = [item for item in
+                                                                        list_project_device_comment_table_df if
+                                                                        item not in set_list_existing_project_device_comment and (
+                                                                            item[1], item[2],
+                                                                            item[
+                                                                                3]) not in list_check_project_device_comment]
+            list_only_in_list_project_device_comment_table_df_update = [item for item in
+                                                                        list_project_device_comment_table_df if
+                                                                        item not in set_list_existing_project_device_comment and (
+                                                                            item[1], item[2],
+                                                                            item[
+                                                                                3]) in list_check_project_device_comment]
+            if list_only_in_list_project_device_comment_table_df_update:
+                project_device_comment_table_df = pd.DataFrame(list_only_in_list_project_device_comment_table_df_update,
+                                                               columns=project_device_comment_table_df_temp.columns)
+                for index, row in project_device_comment_table_df.iterrows():
+                    try:
+                        stmt = (
+                            update(ProjectDeviceComment).
+                            where(
+                                and_(
+                                    ProjectDeviceComment.comment_id == row['comment_id'],
+                                    ProjectDeviceComment.project_id == row['project_id'],
+                                    ProjectDeviceComment.device_details_id == row['device_details_id']
+                                )
+                            ).
+                            values(comment_detail=row['comment_detail'])
+                        )
+                        session.execute(stmt)
+                    except Exception as e:
+                        print(e)
+                        session.rollback()
+
+            if list_only_in_list_project_device_comment_table_df_insert:
+                project_device_comment_table_df = pd.DataFrame(list_only_in_list_project_device_comment_table_df_insert,
+                                                               columns=project_device_comment_table_df_temp.columns)
+                for index, row in project_device_comment_table_df.iterrows():
+                    try:
+                        new_querry_project_device_comment_table_table = ProjectDeviceComment(
+                            device_details_id=row['device_details_id'], comment_id=row['comment_id'],
+                            comment_detail=row['comment_detail'], project_id=row['project_id'])
+                        session.add(new_querry_project_device_comment_table_table)
+                    #         session.commit()
+                    except Exception as e:
+                        print(e)
+        # 13.-------------------------table status_config_device_detail------------------------------
+        st.write('ok')
+        list_existing_status_config_device_detail = (
+            session.query(StatusConfigDeviceDetail.status, StatusConfigDeviceDetail.project_id,
+                          StatusConfigDeviceDetail.config_id, StatusConfigDeviceDetail.device_details_id).all())
+        st.write('ok1')
+        status_config_device_detail = status_config_device_detail_table(df.loc[12:, ], project_name)
+        status_config_device_detail_table_df_merge_prj = pd.merge(status_config_device_detail, project_table_df_querry,
+                                                                  on='project_name',
+                                                                  how='left')
+        status_config_device_detail_table_df_merge_config = pd.merge(status_config_device_detail_table_df_merge_prj,
+                                                                     config_table_df_querry,
+                                                                     on='config_name',
+                                                                     how='left')
+        status_config_device_detail_table_df_temp = pd.merge(status_config_device_detail_table_df_merge_config,
+                                                             device_details_table_df_querry,
+                                                             on=['device_details_name', 'device_name'],
+                                                             how='left')
+        status_config_device_detail_table_df_temp.drop(columns=['project_name', 'config_name', 'device_details_name'],
+                                                       inplace=True)
+        status_config_device_detail_table_df_temp.fillna('null', inplace=True)
+        status_config_device_detail_table_df_temp['status'] = status_config_device_detail_table_df_temp['status'].apply(
+            lambda x: str(x) if x is not None else '')
+        list_status_config_device_detail_table_df = list(
+            status_config_device_detail_table_df_temp.itertuples(index=False, name=None))
+        set_list_existing_status_config_device_detail = set(list_existing_status_config_device_detail)
+        list_check_status_config_device_detail = list(
+            set([(tup[1], tup[2], tup[3]) for tup in set_list_existing_status_config_device_detail]))
+        list_only_in_list_status_config_device_detail_table_df_insert = [item for item in
+                                                                         list_status_config_device_detail_table_df
+                                                                         if
+                                                                         item not in set_list_existing_status_config_device_detail and (
+                                                                             item[1], item[2], item[
+                                                                                 3]) not in list_check_status_config_device_detail]
+        list_only_in_list_status_config_device_detail_table_df_update = [item for item in
+                                                                         list_status_config_device_detail_table_df
+                                                                         if
+                                                                         item not in set_list_existing_status_config_device_detail and (
+                                                                             item[1], item[2], item[
+                                                                                 3]) in list_check_status_config_device_detail]
+        st.write(list_only_in_list_status_config_device_detail_table_df_insert)
+        if list_only_in_list_status_config_device_detail_table_df_insert:
+            status_config_device_detail_table_df = pd.DataFrame(
+                list_only_in_list_status_config_device_detail_table_df_insert,
+                columns=status_config_device_detail_table_df_temp.columns)
+            st.write(status_config_device_detail_table_df)
+            for index, row in status_config_device_detail_table_df.iterrows():
+                try:
+                    new_querry_status_config_device_detail_table = StatusConfigDeviceDetail(
+                        device_details_id=row['device_details_id'], config_id=row['config_id'],
+                        status=row['status'], project_id=row['project_id'])
+                    session.add(new_querry_status_config_device_detail_table)
+                except Exception as e:
+                    print(e)
+                    session.rollback()
+
+        if list_only_in_list_status_config_device_detail_table_df_update:
+            status_config_device_detail_table_df = pd.DataFrame(
+                list_only_in_list_status_config_device_detail_table_df_update,
+                columns=status_config_device_detail_table_df_temp.columns)
+            for index, row in status_config_device_detail_table_df.iterrows():
+                try:
+                    stmt = (
+                        update(StatusConfigDeviceDetail).
+                        where(
+                            and_(
+                                StatusConfigDeviceDetail.config_id == row['config_id'],
+                                StatusConfigDeviceDetail.project_id == row['project_id'],
+                                StatusConfigDeviceDetail.device_details_id == row['device_details_id']
+                            )
+                        ).
+                        values(status=row['status'])
+                    )
+                    session.execute(stmt)
+                except Exception as e:
+                    print(e)
+                    session.rollback()
+
+    session.commit()
+    session.close()
+
+
+def delete_project_syo(df_):
+    df_delete = df_.loc[df_['Delete'] == True]
+    engine = connect_db()
+    Base.metadata.create_all(engine)
+    Session = sessionmaker(bind=engine)
+    session = Session()
+    for index, row in df_delete.iterrows():
+        project_name_ = row['project_name']
+        project_name_ = str(project_name_).upper()
+        session.query(Project).filter(Project.project_name == project_name_).delete()
+    session.commit()
+    session.close()
+    st.success("Delete Completed")
+    return df_.loc[df_['Delete'] == False]
+
+
+def get_gray_blue(project_name):
+    project_name = project_name.upper()
+    engine = connect_db()
+    Base.metadata.create_all(engine)
+    Session = sessionmaker(bind=engine)
+    session = Session()
+    all_project = [name[0] for name in session.query(Project.project_name).all()]
+    max_project_id = session.query(func.max(Project.project_id)).scalar()
+    if project_name not in all_project:
+        if max_project_id is None:
+            max_project_id = 0
+        new_project = Project(project_id=max_project_id + 1, project_name=project_name)
+        session.add(new_project)
+        session.commit()
+    result_querry_region_4_gray = set(session.query(Device.device_group).all())
+    result_querry_region_4_blue = set(session.query(Device.device_name).all())
+    session.close()
+    return result_querry_region_4_gray, result_querry_region_4_blue
+
+
+def querry_to_show_project():
+    engine = connect_db()
+    Base.metadata.create_all(engine)
+    Session = sessionmaker(bind=engine)
+    session = Session()
+    df_project = session.query(Project.project_name).all()
+    all_project = [name[0] for name in session.query(Project.project_name).all()]
+    session.close()
+    df = pd.DataFrame(df_project, columns=['project_name'])
+    df['Delete'] = False
+    return df
+
+
+def update_syo():
+    folder_data = os.path.join(BASE_DIR_DATAS, '仕様表')
+    folder_data = folder_data.replace("\\", "/")
+    st.session_state.message_4 = ''
+    # st.write('folder_data: ', folder_data)
+    if os.path.exists(folder_data):
+        syo_files = [f for f in os.listdir(folder_data) if f.endswith('.xlsx')]
+        # streamlit.write('syo_files: ',syo_files)
+        if syo_files is not None and len(syo_files) > 0:
+            for file_update in syo_files:
+                code = file_update.split('.')[0]
+                if "仕様表_" == code[0:4]:
+                    code = code.replace("仕様表_", "")
+                    file_path = os.path.join(folder_data, file_update)
+                    df, df_1 = dataframe_convert(file_path, code, [], [])
+                    if not isinstance(df, pd.DataFrame):
+                        if df_1:
+                            st.error(df + str(df_1))
+                            st.session_state.message_4 += "\n" + "\n" + df + str(df_1)
+                        else:
+                            st.error(df)
+                            st.session_state.message_4 = df
+                        continue
+                    update_data_new(code, df, df_1)
+                    if df.shape[1] != 7:
+                        data_syo_hyo, unique_list_max, unique_list_submax = querry_data_syo_hyo(code)
+                        data_syo_hyo = data_syo_hyo.fillna("")
+                        st.session_state.message_4 = 'Updated'
+                    else:
+                        df_1, merged_df_4_optioncode, unique_list_max, unique_list_submax = update_and_querry_form_data()
+                        form_df = pd.concat([df_1, merged_df_4_optioncode], axis=0)
+                        st.success('Updated!')
+                        st.session_state.message_4 = 'Updated'
+                else:
+                    st.error('Upload file name is incorrect')
+                    st.session_state.message_4 = 'Upload file name is incorrect'
+        else:
+            del st.session_state['message_4']
+        shutil.rmtree(folder_data)
+    else:
+        #st.write("link khong ton tai")
+        pass
+
+
+def update_syo_form(files_updates):
+    if len(files_updates) > 0:
+        for file_update in files_updates:
+            if file_update.name == "仕様表_FORM.xlsx":
+                code = file_update.name.split('.')[0]
+                code = code.replace("仕様表_", "")
+                df, df_1 = dataframe_convert(file_update, code, [], [])
+                if not isinstance(df, pd.DataFrame):
+                    if df_1:
+                        st.error(df + str(df_1))
+                    else:
+                        st.error(df)
+                    continue
+                update_data_new(code, df, df_1)
+                st.success('Updated!')
+                st.session_state.message_5 = "Updated!!!"
+    elif len(files_updates) == 0:
+        print()
+
+*********************************************************file convert_data_syo.py
+import pandas as pd
+
+import sys
+import os
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
+
+import streamlit
+from openpyxl import load_workbook
+from .check_filed_information import check_syo
+from .list_arrange import check_list_sap_xep
+from xqa_web.app.setting import BASE_DIR_HISTORY_FILE
+import warnings
+
+warnings.filterwarnings("ignore")
+
+
+def find_color_cell(file_path_, sheet_name, column_number):
+    """
+    Scans a specific column in an Excel sheet to identify and classify cells with particular fill colors (gray and blue).
+
+    Args:
+        file_path_ (str): Path to the Excel file.
+        sheet_name (str): Name of the sheet to process.
+        column_number (int): The column index to scan for colored cells.
+
+    Returns:
+        tuple: (gray_cells, blue_cells, delete_cells)
+            - gray_cells: List of tuples (cell value, row index) for gray cells (color code '535353').
+            - blue_cells: List of tuples (cell value, row index) for blue cells (color code '245269').
+            - delete_cells: List of row indices to be considered for deletion.
+
+    Notes:
+        - The function writes all local variables to input and output log files for debugging.
+        - The row indices are adjusted by subtracting 2 from the original row number.
+        - The function also checks and logs the arrangement of blue device names using `check_list_sap_xep`.
+        - Only non-theme fill colors are considered.
+    """
+    wb = load_workbook(file_path_)
+    sheet = wb[sheet_name]
+    gray_cells = []
+    blue_cells = []
+    blue_check = []
+    delete_cells = []
+
+    # Loop through rows
+    for row_idx in range(1, sheet.max_row + 1):
+        cell = sheet.cell(row=row_idx, column=column_number)
+        if cell.fill.start_color.type != 'theme':
+            # Check cell fill color
+            if cell.fill and cell.fill.start_color.index[2:] == '535353':
+                # Blue color found
+                gray_cells.append((cell.value, cell.row - 2))
+                delete_cells.append(cell.row - 2)
+            elif cell.fill and cell.fill.start_color.index[2:] == '245269' and cell.value is not None:
+                blue_cells.append((cell.value, cell.row - 2))
+                blue_check.append(cell.value)
+                delete_cells.append(cell.row - 2)
+    blue_check.insert(0, 'UNKNOW_device')
+    check_list_sap_xep(BASE_DIR_HISTORY_FILE, blue_check)
+    all_variables = dir()
+    with open('find_color_cell_output.txt', 'w' , encoding='utf-8') as f:
+        for item in all_variables:
+            f.write(str(item) + "=" + str(eval(item)) + '\n')
+    return gray_cells, blue_cells, delete_cells
+
+
+def dataframe_convert(file_path, project_name, result_querry_region_4_gray, result_querry_region_4_blue):
+    """
+    Converts an Excel file or DataFrame into a cleaned DataFrame for further processing,
+    grouping device names and device groups based on color-coded cells and other rules.
+
+    Args:
+        file_path (str or DataFrame): Path to the Excel file or a DataFrame to process.
+        project_name (str): Name of the project (used for labeling).
+        result_querry_region_4_gray (list): List of gray region query results for device group boundaries (used if input is a DataFrame).
+        result_querry_region_4_blue (list): List of blue region query results for device name boundaries (used if input is a DataFrame).
+
+    Returns:
+        tuple: (df_cleaned, df_optioncode)
+            - df_cleaned: Cleaned DataFrame containing the main data with device grouping and project name.
+            - df_optioncode: DataFrame containing option code rows (if available), otherwise empty DataFrame.
+
+    Notes:
+        - If the input is a file path, reads the Excel file and checks for required columns and data validity.
+        - If the input is a DataFrame, uses the provided region query results to determine device group and device name boundaries.
+        - Handles both 6-column and multi-column formats, renames columns if necessary, and removes unnecessary rows/columns.
+        - Assigns 'device_group' and 'device_name' columns based on the position of gray and blue cells.
+        - Drops rows with missing essential values and removes rows marked for deletion.
+        - Logs all local variables to text files for debugging.
+    """
+    sheet_name = 'Sheet1'
+    column_number = 1
+    flg_create_syo = False
+
+    if not isinstance(file_path, pd.DataFrame):
+        try:
+            df = pd.read_excel(file_path, sheet_name='Sheet1')
+        except:
+            return f'{project_name}: Sheet name must be "Sheet1"', []
+        if 'gr' in df.columns:
+            df.rename(columns={'gr': 'Gr', 'keyword': 'Keyword'}, inplace=True)
+        list_error, duplicated_elements = check_syo(df)
+        if list_error == ['Columns with missing values']:
+            return f'{project_name}: Exist Columns with missing values', []
+        elif list_error == ['(Gr, Keyword, CADICS ID, AUTO) columns not in data']:
+            return f'{project_name}: (Gr, Keyword, CADICS ID, AUTO) columns not in data', []
+        else:
+            if len(list_error) > 0 and len(duplicated_elements) == 0:
+                return f'{project_name}: Form SYO incorrect ', list_error
+            elif len(list_error) == 0 and len(duplicated_elements) > 0:
+                streamlit.warning(f'{project_name}: CADICS ID duplicated f{duplicated_elements}')
+                # return f'{project_name}: CADICS ID duplicated ', duplicated_elements
+            elif len(list_error) > 0 and len(duplicated_elements) > 0:
+                return f'{project_name}: Form SYO incorrect and CADICS ID duplicated ', [
+                    list_error + duplicated_elements]
+    else:
+        df = file_path.copy()
+        flg_create_syo = True
+    if df.shape[1] == 6:
+        opt_index = df.index[df['CADICS ID'] == 'OptionCode'].values[0]
+        gray_cells_list, blue_cells_list_old, delete_cells = find_color_cell(file_path, sheet_name, column_number)
+        blue_cells_list_old = [('UNKNOW_device', 0)] + blue_cells_list_old + [('xxx', opt_index)]
+        # check_list_sap_xep('../src/db/your_file.txt', blue_cells_list_old)
+
+        gray_cells_list = [('UNKNOW_device_group', 0)] + gray_cells_list + [('xxx', blue_cells_list_old[-1][1] - 1)]
+
+        index_gray_old = 0
+        value_gray_old = 'xxx'
+        for item in gray_cells_list:
+            if item[0] == 'UNKNOW_device_group':
+                value_gray_old = item[0]
+                index_gray_old = item[1]
+            else:
+                df.loc[index_gray_old:item[1], 'device_group'] = value_gray_old
+                value_gray_old = item[0]
+                index_gray_old = item[1]
+        index_blue_old = 0
+        value_blue_old = 'xxx'
+        for item in blue_cells_list_old:
+            if item[0] == 'UNKNOW_device':
+                value_blue_old = item[0]
+                index_blue_old = item[1]
+            else:
+                df.loc[index_blue_old:item[1], 'device_name'] = value_blue_old
+                value_blue_old = item[0]
+                index_blue_old = item[1]
+        df_end = df.iloc[:opt_index]
+
+        df_cleaned = df_end.dropna(subset=['Gr', 'CADICS ID', 'auto'], how='all')
+        df_cleaned.loc[:, 'project_name'] = project_name
+        df_cleaned.drop(index=delete_cells, inplace=True)
+        all_variables = dir()
+        with open('dataframe_convert_output_1.txt', 'w' , encoding='utf-8') as f:
+            for item in all_variables:
+                f.write(str(item) + "=" + str(eval(item)) + '\n')
+        return df_cleaned, pd.DataFrame()
+    else:
+        try:
+            df.drop(columns=["group_key_map", "default"], inplace=True)
+        except:
+            pass
+        if flg_create_syo:
+            gray_cells_list = []
+            blue_cells_list_old = []
+            delete_cells = []
+            for item in result_querry_region_4_gray:
+                index_gray = df.index[df['auto'] == item[0]].tolist()
+                if index_gray:
+                    gray_cells_list.append((item[0], index_gray[0]))
+                    delete_cells.append(index_gray[0])
+                else:
+                    gray_cells_list.append((item[0], 0))
+            gray_cells_list = set(gray_cells_list)
+            for item in result_querry_region_4_blue:
+                index_blue = df.index[df['auto'] == item[0]].tolist()
+                if index_blue:
+                    blue_cells_list_old.append((item[0], index_blue[0]))
+                    delete_cells.append(index_blue[0])
+                else:
+                    blue_cells_list_old.append((item[0], 0))
+            blue_cells_list_old = set(blue_cells_list_old)
+            opt_index = df.index[df['CADICS ID'] == 'OptionCode'].values[0]
+        else:
+            gray_cells_list, blue_cells_list_old, delete_cells = find_color_cell(file_path, sheet_name, column_number)
+            opt_index = df.index[df['CADICS ID'] == 'OptionCode'].values[0]
+        blue_cells_list_old = [('UNKNOW_device', 0)] + list(blue_cells_list_old) + [('xxx', opt_index + 2)]
+        gray_cells_list = [('UNKNOW_device_group', 0)] + list(gray_cells_list) + [
+            ('xxx', blue_cells_list_old[-1][1])]
+        blue_cells_list_old = list(set(blue_cells_list_old))
+        gray_cells_list = list(set(gray_cells_list))
+        set_gray_cells_list_values = {value for _, value in gray_cells_list}
+        blue_cells_list = []
+        for item in blue_cells_list_old:
+            device, value = item
+            if item[0] == 'xxx':
+                blue_cells_list.append((device, value))
+            else:
+                if (value - 1) in set_gray_cells_list_values:
+                    blue_cells_list.append((device, value))
+                else:
+                    blue_cells_list.append(item)
+
+        list_columns_name = []
+        if 'group_key_map' in df.columns:
+            for i, item in enumerate(reversed(df.columns.values)):
+                if str(item).startswith('conf-'):
+                    column_names = ['comment_' + str(i + 1) for i in range(0, i - 2)] + ['group_key_map', 'default']
+
+                    list_columns_name = list(df.columns.values[:len(df.columns.values) - i]) + column_names
+                    break
+        else:
+            for i, item in enumerate(reversed(df.columns.values)):
+                if str(item).startswith('conf-'):
+                    column_names = ['comment_' + str(i + 1) for i in range(0, i)]
+                    list_columns_name = list(df.columns.values[:len(df.columns.values) - i]) + column_names
+                    break
+        df.columns = list_columns_name
+        index_gray_old = 0
+        value_gray_old = 'xxx'
+
+        gray_cells_list = list(set(gray_cells_list))
+        gray_cells_list = sorted(gray_cells_list, key=lambda x: x[1])
+        blue_cells_list = list(set(blue_cells_list))
+        blue_cells_list = sorted(blue_cells_list, key=lambda x: x[1])
+        for item in gray_cells_list:
+            if item[0] == 'UNKNOW_device_group':
+                value_gray_old = item[0]
+                index_gray_old = item[1]
+            else:
+                df.loc[index_gray_old:item[1], 'device_group'] = value_gray_old
+                value_gray_old = item[0]
+                index_gray_old = item[1]
+        index_blue_old = 0
+        value_blue_old = 'xxx'
+        for item in blue_cells_list:
+            if item[0] == 'UNKNOW_device':
+                value_blue_old = item[0]
+                index_blue_old = item[1]
+            else:
+                df.loc[index_blue_old:item[1], 'device_name'] = value_blue_old
+                value_blue_old = item[0]
+                index_blue_old = item[1]
+        df_end = df.iloc[:opt_index]
+        df_optioncode = df.iloc[opt_index:, ]
+        df_end.loc[:, 'project_name'] = project_name.upper()
+        if 'gr' in df_end.columns:
+            df_cleaned = df_end.dropna(subset=['gr', 'CADICS ID', 'auto'], how='all')
+        else:
+            df_cleaned = df_end.dropna(subset=['Gr', 'CADICS ID', 'auto'], how='all')
+        df_cleaned.drop(index=delete_cells, inplace=True)
+        df_cleaned['CADICS ID'] = df_cleaned['CADICS ID'].astype(str).apply(str.upper)
+        all_variables = dir()
+        with open('dataframe_convert_output_2.txt', 'w' , encoding='utf-8') as f:
+            for item in all_variables:
+                f.write(str(item) + "=" + str(eval(item)) + '\n')
+        return df_cleaned, df_optioncode
+
+
+# 2.----------------------table config--------------------------------
+def config_table(df_):
+    list_columns_df = df_.columns.values
+    conf_list = [item for item in list_columns_df if item.startswith('conf')]
+    config_table_df = pd.DataFrame({'config': conf_list})
+    # print()
+    return config_table_df
+
+
+# 3.---------------------table lot---------------------------------------
+def lot_table(df_1_):
+    lot_table_ref = pd.DataFrame({'lot_name': df_1_.iloc[1:, df_1_.columns.get_loc('CADICS ID')]})
+    lot_table_ref.reset_index(drop=True, inplace=True)
+    return lot_table_ref
+
+
+# 4.-----------------------table comment_column--------------------------------------
+def comment_column_table(df_):
+    list_columns_df = df_.columns.values
+    comment_list = [item for item in list_columns_df if item.startswith('comment')]
+    comment_table_df = pd.DataFrame({'Comment': comment_list})
+    return comment_table_df
+
+
+# 5.---------------------------table device--------------------------
+def device_table(df_):
+    device_table_df = df_[['device_name', 'device_group']]
+    df_new = device_table_df.drop_duplicates()
+    return df_new
+
+
+# 6.------------------------table device_detail--------------------------
+def device_detail_table(df_):
+    if 'Gr' in df_.columns:
+        if 'default' not in df_.columns:
+            device_detail_df = df_[['device_name', 'CADICS ID', 'Gr', 'Keyword', 'auto']]
+        else:
+            device_detail_df = df_[['device_name', 'CADICS ID', 'Gr', 'Keyword', 'auto', 'group_key_map', 'default']]
+        device_detail_df.rename(
+            columns={'CADICS ID': 'device_details_name', 'Gr': "group_detail", 'Keyword': 'option_detail',
+                     'auto': 'auto_detail'},
+            inplace=True)
+    else:
+        if 'default' not in df_.columns:
+            device_detail_df = df_[['device_name', 'CADICS ID', 'gr', 'keyword', 'auto']]
+        else:
+            # print(df_.columns)
+            device_detail_df = df_[['device_name', 'CADICS ID', 'gr', 'keyword', 'auto', 'group_key_map', 'default']]
+        device_detail_df.rename(
+            columns={'CADICS ID': 'device_details_name', 'gr': "group_detail", 'keyword': 'option_detail',
+                     'auto': 'auto_detail'},
+            inplace=True)
+
+    device_detail_df = device_detail_df.dropna(subset=['device_details_name'])
+    device_detail_df = device_detail_df[device_detail_df['device_details_name'] != '']
+    return device_detail_df.iloc[12:, :]
+
+
+# 7.---------------------------table information_project------------------------------
+def information_project_table(df_):
+    if 'Gr' in df_.columns:
+        information_project_df = df_.loc[:11, ['CADICS ID', 'Gr', 'Keyword', 'auto']]
+    else:
+        information_project_df = df_.loc[:11, ['CADICS ID', 'gr', 'keyword', 'auto']]
+    return information_project_df
+
+
+# 8.-------------------table optioncode--------------------------------------
+def optioncode_table(df_1_, project_name_):
+    conf_columns = [col for col in df_1_.columns if col.startswith('conf-')]
+    list_col_to_index = []
+    for item in conf_columns:
+        list_col_to_index.append(df_1_.columns.get_loc(item))
+    optioncode_df = df_1_.iloc[0, list_col_to_index]
+
+    result_df = optioncode_df.reset_index()
+    result_df.loc[:, 'project_name'] = project_name_
+    result_df.columns = ['config_name', 'optioncode_value', 'project_name']
+    return result_df
+
+
+# 9.-------------------------table project_device-------------------------
+def project_device_table(df_, project_name_):
+    df_ref = df_[['device_name']]
+    project_device = df_ref.drop_duplicates()
+    project_device.loc[:, 'project_name'] = project_name_
+    return project_device
+
+
+# 10.--------------------------table value_inf------------------------------------
+def value_inf_table(df_):
+    list_columns_df = df_.columns.values
+    conf_list = [item for item in list_columns_df if item.startswith('conf')]
+
+    value_if_columns = conf_list + ['CADICS ID', 'project_name']
+    new_df = df_[value_if_columns]
+    df_ref = pd.melt(new_df, id_vars=['CADICS ID', 'project_name'], value_vars=conf_list, var_name='config_name',
+                     value_name='Value')
+    value_if_df_ref = df_ref[['project_name', 'config_name', 'CADICS ID', 'Value']]
+    value_if_df = value_if_df_ref.loc[:, :]
+    value_if_df.rename(
+        columns={'CADICS ID': 'parameter_name', 'Value': "value"},
+        inplace=True)
+    return value_if_df
+
+
+# 11.---------------------------------table status_lot_config---------------------------
+def status_lot_config_table(df_1_, project_name_):
+    conf_columns = [col for col in df_1_.columns if col.startswith('conf-')]
+    all_columns = ['CADICS ID'] + conf_columns
+    list_col_to_index = []
+    for item in all_columns:
+        list_col_to_index.append(df_1_.columns.get_loc(item))
+    status_lot_config_df_ref = df_1_.iloc[1:, list_col_to_index]
+    status_lot_config_df = pd.melt(status_lot_config_df_ref, id_vars=['CADICS ID'], value_vars=conf_columns,
+                                   var_name='config_name', value_name='Value')
+    status_lot_config_df.loc[:, 'project_name'] = project_name_
+    status_lot_config_df.rename(columns={'CADICS ID': 'lot_name', 'Value': "status"}, inplace=True)
+    return status_lot_config_df
+
+
+# 12.---------------------------------table project_device_comment--------------------
+def project_device_comment_table(df_, project_name_):
+    comment_columns = [col for col in df_.columns if col.startswith('comment')]
+    if len(comment_columns) > 0:
+        all_columns = ['device_name', 'CADICS ID'] + comment_columns
+        list_col_to_index = []
+        for item in all_columns:
+            list_col_to_index.append(df_.columns.get_loc(item))
+        project_device_comment_ref = df_.iloc[1:, list_col_to_index]
+        # print('project_device_comment_ref columns: ', project_device_comment_ref.columns)
+        project_device_comment_df = pd.melt(project_device_comment_ref, id_vars=['device_name', 'CADICS ID'],
+                                            value_vars=comment_columns,
+                                            var_name='Comment', value_name='Value')
+        # print('project_device_comment_df columns: ', project_device_comment_df.columns)
+        project_device_comment_df.loc[:, 'project_name'] = project_name_
+        project_device_comment_df.rename(
+            columns={'CADICS ID': 'device_details_name', 'Comment': "comment_name", 'Value': 'comment_detail'},
+            inplace=True)
+        project_device_comment_df.dropna(subset=['device_details_name'], inplace=True)
+        project_device_comment_df = project_device_comment_df[project_device_comment_df['device_details_name'] != '']
+        return project_device_comment_df
+    else:
+        return pd.DataFrame()
+
+
+# 13.-------------------------table status_config_device_detail------------------------------
+def status_config_device_detail_table(df_, project_name_):
+    config_columns = [col for col in df_.columns if col.startswith('conf-')]
+    all_columns = ['device_name', 'CADICS ID'] + config_columns
+    list_col_to_index = []
+    for item in all_columns:
+        list_col_to_index.append(df_.columns.get_loc(item))
+    status_config_device_detail_ref = df_.iloc[:, list_col_to_index]
+    status_config_device_detail_df = pd.melt(status_config_device_detail_ref, id_vars=['device_name', 'CADICS ID'],
+                                             value_vars=config_columns,
+                                             var_name='Config', value_name='Value')
+    status_config_device_detail_df.loc[:, 'project_name'] = project_name_
+    status_config_device_detail_df.rename(
+        columns={'CADICS ID': 'device_details_name', 'Config': "config_name", 'Value': 'status'},
+        inplace=True)
+    status_config_device_detail_df.dropna(subset=['device_details_name'], inplace=True)
+    status_config_device_detail_df = status_config_device_detail_df[
+        status_config_device_detail_df['device_details_name'] != '']
+    return status_config_device_detail_df
+
+
+*****************************************************************file update_file.py
+import base64
+import os
+import secrets
+import shutil
+import subprocess
+import sys
+
+import pandas as pd
+import streamlit as st
+
+import os
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
+
+from .db.funtion_database import offline_edit
+from xqa_web.app.setting import BASE_DIR_DATAS, BASE_DIR_CADICS_TEMP
+
+
+@st.cache_resource
+def get_csrf_token():
+    return base64.b64encode(secrets.token_bytes(32)).decode("utf-8")
+
+
+def update_file_into_server(car_name, List_file, csrf_token):
+    if csrf_token != get_csrf_token():
+        st.error("Invalid CSRF token. This request is not allowed.")
+        st.session_state.message_3 = "Invalid CSRF token. This request is not allowed."
+        return
+    if car_name != "":
+        car_name = str(car_name).upper()
+        folder_save_file_upload = os.path.join(BASE_DIR_DATAS, car_name)
+        if not os.path.exists(folder_save_file_upload):
+            os.makedirs(folder_save_file_upload)
+        for file in List_file:
+            file_path = os.path.join(folder_save_file_upload, file.name)
+            with open(file_path, "wb") as f:
+                f.write(file.getvalue())
+
+            # ===================extract file .zip, .7z=======================
+            if car_name in file.name and (".zip" in file.name or ".7z" in file.name):
+                extract(file_path, folder_save_file_upload)
+
+        if len(List_file) != 0:
+            st.write("Update File Completed!!!")
+
+
+def update_file_into_server_new(car_name, List_file, csrf_token):
+    if csrf_token != get_csrf_token():
+        st.error("Invalid CSRF token. This request is not allowed.")
+        st.session_state.message_3 = "Invalid CSRF token. This request is not allowed."
+    for file in List_file:
+        if (file.name in ['仕様表.zip', '仕様表.7z']) or (
+                file.name.startswith('仕様表') and 'FORM' not in file.name.upper()):
+            folder_save_file_upload = os.path.join(BASE_DIR_DATAS, "仕様表")
+            if not os.path.exists(folder_save_file_upload):
+                os.makedirs(folder_save_file_upload)
+
+            file_path = os.path.join(folder_save_file_upload, file.name)
+            with open(file_path, "wb") as f:
+                f.write(file.getvalue())
+
+            # ===================extract file .zip, .7z=======================
+            if '仕様表' in file.name and (".zip" in file.name or ".7z" in file.name):
+                extract(file_path, folder_save_file_upload)
+                os.remove(file_path)
+            st.session_state.message_10 = "仕様表 Updated"
+        elif file.name.startswith('関連表') and file.name.endswith('.xlsx') and car_name != "":
+            car_name = str(car_name).upper()
+            folder_save_file_upload = os.path.join(BASE_DIR_DATAS, car_name)
+            if not os.path.exists(folder_save_file_upload):
+                os.makedirs(folder_save_file_upload)
+            source_item_1 = os.path.join(folder_save_file_upload, file.name)
+            with open(source_item_1, "wb") as f:
+                f.write(file.getvalue())
+            st.success("Update 関連表 Completed!!!")
+        else:
+            if car_name != "" and car_name.upper() in file.name.upper():
+                car_name = str(car_name).upper()
+                folder_save_file_upload = os.path.join(BASE_DIR_DATAS, car_name)
+                if not os.path.exists(folder_save_file_upload):
+                    os.makedirs(folder_save_file_upload)
+                file_path = os.path.join(folder_save_file_upload, file.name)
+                with open(file_path, "wb") as f:
+                    f.write(file.getvalue())
+
+                # ===================extract file .zip, .7z=======================
+                if car_name in file.name and (".zip" in file.name or ".7z" in file.name):
+                    extract(file_path, folder_save_file_upload)
+                    os.remove(file_path)
+                syo_files = [f for f in os.listdir(folder_save_file_upload) if
+                             f.endswith('.xlsx') and f.startswith('仕様表')]
+                if len(syo_files) > 0:
+                    destination_syo_folder = os.path.join(BASE_DIR_DATAS, "仕様表")
+                    os.makedirs(destination_syo_folder, exist_ok=True)
+                    for item in syo_files:
+                        source_item_1 = os.path.join(folder_save_file_upload, item)
+                        shutil.copy2(source_item_1, destination_syo_folder)
+                st.session_state.message_10 = "プロ管 Updated"
+            elif car_name == "" or car_name.upper() not in file.name.upper():
+                if file.name != "仕様表_FORM.xlsx":
+                    st.session_state.message_10 = 'Check model code or file name'
+
+def update_file_after_edit(code, pwt, plant, case, file_updates, csrf_token, name_user):
+    all_variables = dir()
+    with open('update_file_after_edit_input.txt', 'w' , encoding='utf-8') as f:
+        for item in all_variables:
+            f.write(str(item) + "=" + str(eval(item)) + '\n')
+    flag = 0
+    if csrf_token != get_csrf_token():
+        st.session_state.message_3 = "Invalid CSRF token. This request is not allowed."
+        return "Invalid CSRF token. This request is not allowed."
+    for file_update in file_updates:
+        if file_update.name == "CADICS_ALL.csv":
+            flag = 1
+            if code != "" and code != None:
+                new_data = pd.read_csv(file_update, header=None)
+                folder_name = str(name_user).upper() + "_" + str(code).upper() + "_" + str(pwt).upper() + "_" + str(
+                    plant).upper() + "_" + str(case).upper()
+                folder_save_file_update = os.path.join(BASE_DIR_CADICS_TEMP, folder_name, "CADICS_ALL.csv")
+                if not os.path.exists(folder_save_file_update):
+                    return "FAIL: There is no cadic references"
+                else:
+                    old_data = pd.read_csv(folder_save_file_update, header=None)
+                    offline_edit(str(code).upper(), plant, pwt, case, new_data, old_data)
+                    return "Update Completed!!!"
+            else:
+                return "Project not exist!!!"
+    if flag == 0:
+        return ""
+
+
+# def extract(file_path, output_dir):
+#     # Tạo thư mục đích nếu nó chưa tồn tại
+#     if not os.path.exists(output_dir):
+#         os.makedirs(output_dir)
+#     seven_zip_path = shutil.which("7z")
+#
+#     # Nếu không tìm thấy 7z trong PATH, sử dụng đường dẫn mặc định
+#     if seven_zip_path is None:
+#         seven_zip_path = "C:\\Program Files\\7-Zip\\7z.exe"  # Thay thế bằng đường dẫn đầy đủ đến 7z.exe nếu cần
+#
+#     if not os.path.exists(seven_zip_path):
+#         raise FileNotFoundError(
+#             f"The command '{seven_zip_path}' was not found. Please install it or add it to your PATH.")
+#
+#     if ".zip" in file_path:
+#         subprocess.run([seven_zip_path, "x", file_path, f"-o{output_dir}", "-y"])
+#         folder = file_path[:-4]  # Lấy đường dẫn mà không có phần mở rộng .zip
+#         # if "仕様表" not in file_path:
+#         move_all_items(folder, output_dir)
+#         delete_folder(folder)
+#     if ".7z" in file_path:
+#         subprocess.run([seven_zip_path, "x", file_path, f"-o{output_dir}", "-y"])
+#         folder = file_path[:-3]  # Lấy đường dẫn mà không có phần mở rộng .7z
+#         # if "仕様表" not in file_path:
+#         move_all_items(folder, output_dir)
+#         delete_folder(folder)
+
+
+def extract(file_path, output_dir):
+    all_variables = dir()
+    with open('extract_input.txt', 'w' , encoding='utf-8') as f:
+        for item in all_variables:
+            f.write(str(item) + "=" + str(eval(item)) + '\n')
+    # Tạo thư mục đích nếu nó chưa tồn tại
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    # Giải nén tệp .7z vào thư mục đích
+    if ".zip" in file_path:
+        subprocess.run(["unar", file_path, "-o", output_dir])
+        folder = file_path[0:len(file_path) - 4]
+        move_all_items(folder, output_dir)
+        delete_folder(folder)
+    if ".7z" in file_path:
+        subprocess.run(["7z", "x", file_path, f"-o{output_dir}"])
+        folder = file_path[0:len(file_path) - 3]
+        move_all_items(folder, output_dir)
+        delete_folder(folder)
+
+
+def move_all_items(source_dir, destination_dir):
+    all_variables = dir()
+    with open('move_all_items_input.txt', 'w' , encoding='utf-8') as f:
+        for item in all_variables:
+            f.write(str(item) + "=" + str(eval(item)) + '\n')
+    # Tạo thư mục đích nếu nó không tồn tại
+    os.makedirs(destination_dir, exist_ok=True)
+
+    # Lặp qua tất cả các mục trong thư mục nguồn
+    for item in os.listdir(source_dir):
+        source_item = os.path.join(source_dir, item)
+        destination_item = os.path.join(destination_dir, item)
+
+        # Di chuyển từng mục sang thư mục đích
+        shutil.move(source_item, destination_item)
+
+
+def delete_folder(folder_path):
+    all_variables = dir()
+    with open('delete_folder_input.txt', 'w' , encoding='utf-8') as f:
+        for item in all_variables:
+            f.write(str(item) + "=" + str(eval(item)) + '\n')
+    if os.path.exists(folder_path):
+        shutil.rmtree(folder_path)
+
+
+*************************************************************check_filed_information.py
+
+import numpy as np
+import streamlit
+# import win32com.client
+import pandas as pd
+import re
+import os
+import math
+import unicodedata
+import warnings
+import time
+import streamlit as st
+warnings.filterwarnings("ignore")
+
+def read_protected_excel(file_path_, sheet_name_):
+    # Extract the password from the file name
+    name = file_path_.split('\\')
+    text = name[-1]
+    match = re.search(r'\((.*?)\)', text)
+    password_ = match.group(1)
+
+    # Initialize the Excel Application object
+    xlApp = win32com.client.Dispatch("Excel.Application")
+
+    # Open the Excel file and authenticate with the password
+    xlwb = xlApp.Workbooks.Open(file_path_, False, True, None, password_)
+
+    xlApp.Visible = False
+    xlwb.Worksheets(sheet_name_).Activate()
+    readData = xlwb.Worksheets(sheet_name_)
+    ws = xlwb.ActiveSheet
+
+    # Get data from the sheet
+    allData = readData.UsedRange
+    EndRow = allData.Rows.Count
+    EndCol = allData.Columns.Count
+
+    # Retrieve the content of the sheet and convert it to a DataFrame
+    content = ws.Range(ws.Cells(1, 1), ws.Cells(EndRow, EndCol)).Value
+    df = pd.DataFrame(list(content))
+
+    xlwb.Close(False)
+    return df
+
+
+def get_xlsx_files(directory_path):
+    xlsx_files = [filename for filename in os.listdir(directory_path) if filename.endswith('.xlsx')]
+    xlsx_paths = [os.path.join(directory_path, filename) for filename in xlsx_files]
+    return xlsx_files, xlsx_paths
+
+
+def check_key_spec():
+    directory_path = os.path.abspath(os.path.join(os.getcwd(), "../../data/raw"))
+    xlsx_files, xlsx_paths = get_xlsx_files(directory_path)
+    list_key_check_row_15 = ['Class', 'Attributes', 'Option Package', 'ZONE', 'BODY']
+    list_end = []
+    for file_name, file_path in zip(xlsx_files, xlsx_paths):
+        df = pd.read_excel(file_name, header=False, sheet_name=1)
+        list_key_word_1 = df.iloc[14].tolist()
+        name_column = df.iloc[14].eq('NAME').idxmax()
+        list_key_word_2 = df.iloc[:, name_column].tolist()
+        list_key_word = list_key_word_1 + list_key_word_2
+        dict_sub = {'file_name': None, 'Class': None, 'Attributes': None, 'Option Package': None, 'ZONE': None,
+                    'BODY': None}
+        for item in list_key_check_row_15:
+            if item not in list_key_word:
+                if dict_sub['file_name'] is None:
+                    dict_sub['file_name'] = file_name
+                dict_sub[item] = '✕'
+        if list(set(dict_sub.values())) != [None]:
+            list_end.append(dict_sub)
+    df = pd.DataFrame(list_end)
+    return df
+
+
+def check_key_spec_new(file_name):
+    #st.write(file_name)
+    flg_check_fail = False
+    list_key_check_row_15 = ['Class', 'Attributes', 'Option Package', 'ZONE', 'BODY', 'ENGINE', 'AXLE', 'HANDLE',
+                             'GRADE', 'TRANS', 'YEAR', 'INTAKE', 'SEAT', 'NUMBER']
+    list_end = []
+    dict_sub = {'file_name': None, 'Class': None, 'Attributes': None, 'Option Package': None, 'ZONE': None,
+                'BODY': None, 'ENGINE': None, 'AXLE': None, 'HANDLE': None,
+                'GRADE': None, 'TRANS': None, 'YEAR': None, 'INTAKE': None, 'SEAT': None, 'NUMBER': None,
+                'SHEET_NAME': None}
+    try:
+        df = pd.read_excel(file_name[0], header=None, sheet_name='1-SPEC')
+    except:
+        dict_sub['file_name'] = file_name[0].name
+        dict_sub['SHEET_NAME'] = '✕'
+        flg_check_fail = True
+        df = pd.DataFrame([dict_sub])
+        streamlit.write(df)
+        return df, flg_check_fail
+
+    list_key_word_1 = df.iloc[14].tolist()
+    list_key_word_1_processed = [x for x in list_key_word_1 if not (isinstance(x, float) and math.isnan(x))]
+    name_column = df.iloc[14].eq('NAME').idxmax()
+    df[name_column] = df[name_column].replace('SEAT/EQUIP', 'SEAT')
+    list_key_word_2 = df.iloc[:, name_column].tolist()
+    list_key_word_2_processed = [x for x in list_key_word_2 if not (isinstance(x, float) and math.isnan(x))]
+    list_key_word = list_key_word_1_processed + list_key_word_2_processed
+
+    for item in list_key_check_row_15:
+        if item not in list_key_word:
+            if dict_sub['file_name'] is None:
+                dict_sub['file_name'] = file_name[0].name
+            dict_sub[item] = '✕'
+    if list(set(dict_sub.values())) != [None]:
+        list_end.append(dict_sub)
+    df = pd.DataFrame(list_end)
+    if not df.empty:
+        flg_check_fail = True
+    return df, flg_check_fail
+
+
+def normalize_japanese_text(input_text):
+    normalized_text = ''
+    if isinstance(input_text, str):
+        for char in input_text:
+            normalized_char = unicodedata.normalize('NFKC', char)
+            normalized_text += normalized_char
+        normalized_text = normalized_text.replace("”", "\"")
+        normalized_text = normalized_text.strip()
+        return normalized_text
+    else:
+        return input_text
+
+
+def check_syo(df_):
+    list_error = []
+    for item in ['auto', 'Gr', 'Keyword', 'CADICS ID']:
+        if item not in df_.columns:
+            list_error.append(item)
+    columns_with_missing_values = df_.columns[df_.isna().all()].tolist()
+    filtered_list = [item for item in columns_with_missing_values if not item.startswith('comment_')and item != 'default']
+    if filtered_list:
+        return ['Columns with missing values'], []
+    required_columns = ['Gr', 'Keyword', 'CADICS ID', 'auto']
+    missing_columns = [col for col in required_columns if col not in df_.columns]
+    if missing_columns:
+        return ['(Gr, Keyword, CADICS ID, AUTO) columns not in data'], []
+    df_['CADICS ID'] = df_['CADICS ID'].apply(lambda x: normalize_japanese_text(x) if isinstance(x, str) else x)
+    valid_df = df_[df_['CADICS ID'].notna() & (df_['CADICS ID'] != '')]
+    valid_df['CADICS ID'] = valid_df['CADICS ID'].apply(str.upper)
+    duplicated_elements_ = valid_df[valid_df.duplicated('CADICS ID', keep=False)]['CADICS ID'].unique().tolist()
+    return list_error, duplicated_elements_
+
+
+def check_optioncode(df_):
+    conf_columns = [col for col in df_.columns if col.startswith('conf-')]
+    df_ = df_.replace('', None)
+    rows_with_cadic = df_[df_['CADICS ID'] == 'OptionCode']
+    for index, row in rows_with_cadic.iterrows():
+
+        if row[conf_columns].isna().all():
+            return True
+        else:
+            return False
+
+
+****************************************************************all_process_spec_not_protected.py
+
+import warnings
+
+import pandas as pd
+from openpyxl import load_workbook
+
+from xqa_web.app.logics.syo.list_arrange import check_list_sap_xep
+from xqa_web.app.setting import BASE_DIR_HISTORY_FILE
+
+warnings.filterwarnings("ignore")
+
+
+def find_color_cell(sheet_, column_numbers_):
+    """
+    Find and classify special colored cells (gray, blue, and cells to delete) in the specified columns of an Excel sheet.
+
+    Args:
+        sheet_ (Worksheet): The Excel worksheet to check.
+        column_numbers_ (list): List of column indices to process.
+
+    Returns:
+        tuple: (gray_cells, blue_cells, delete_cells)
+            - gray_cells: List of tuples (cell value, row number) for gray cells.
+            - blue_cells: List of tuples (cell value, row number) for blue cells.
+            - delete_cells: List of row numbers to be deleted.
+
+    Notes:
+        - This function also calls a check for the arrangement of blue device list.
+        - Color codes are determined by the cell's fill property.
+    """
+    gray_cells = []
+    blue_cells = []
+    delete_cells = []
+    blue_check = []
+    for column_number in column_numbers_:
+
+        for row_idx in range(1, sheet_.max_row + 1):
+            cell = sheet_.cell(row=row_idx, column=column_number)
+            #
+            if cell.fill.start_color.type != 'theme':
+                if cell.value and cell.fill and cell.fill.start_color.index[2:] == '535353':
+                    gray_cells.append((cell.value, cell.row))
+                    delete_cells.append(cell.row)
+                elif cell.fill and cell.fill.start_color.index[2:] == '245269' and cell.value is not None:
+                    blue_cells.append((cell.value, cell.row))
+                    blue_check.append(cell.value)
+                    delete_cells.append(cell.row)
+                elif cell.fill and cell.fill.start_color.index[2:] == '969696' and cell.row > 9:
+                    delete_cells.append(cell.row)
+    blue_check.insert(0, 'UNKNOW_device')
+    check_list_sap_xep(BASE_DIR_HISTORY_FILE, blue_check)
+    return gray_cells, blue_cells, delete_cells
+
+
+def find_color_columns(sheet_, column_numbers_, row_idx):
+    """
+    Find columns with gray cells in a specific row of an Excel sheet.
+
+    Args:
+        sheet_ (Worksheet): The Excel worksheet to check.
+        column_numbers_ (list): List of column indices to process.
+        row_idx (int): The row number to check.
+
+    Returns:
+        list: List of column indices where the cell in the specified row is gray.
+
+    Notes:
+        - Only checks a single row.
+        - Useful for removing unnecessary columns.
+    """
+    delete_columns = []
+    for column_number in column_numbers_:
+        cell = sheet_.cell(row=row_idx, column=column_number)
+        if cell.fill.start_color.type != 'theme':
+            if cell.fill and cell.fill.start_color.index[2:] == '969696':
+                delete_columns.append(cell.column)
+    return delete_columns
+
+
+def unmerge_and_fill(sheet_):
+    """
+    Unmerge all merged cells in the worksheet and fill all cells in each merged range with the value of the top-left cell.
+
+    Args:
+        sheet_ (Worksheet): The Excel worksheet to process.
+
+    Returns:
+        DataFrame: DataFrame containing the data after unmerging and filling values.
+
+    Notes:
+        - The value of the first cell in each merged range is copied to all cells in that range.
+        - The result is returned as a DataFrame for further processing.
+    """
+    merged_ranges_and_values = [
+        (merged_cell_range, sheet_.cell(merged_cell_range.min_row, merged_cell_range.min_col).value)
+        for merged_cell_range in sheet_.merged_cells.ranges
+    ]
+
+    df = pd.DataFrame(index=range(1, sheet_.max_row + 1), columns=range(1, sheet_.max_column + 1))
+    for row in range(1, sheet_.max_row + 1):
+        for col in range(1, sheet_.max_column + 1):
+            df.at[row, col] = sheet_.cell(row=row, column=col).value
+
+    for merged_range, value in merged_ranges_and_values:
+
+        min_row, min_col, max_row, max_col = merged_range.min_row, merged_range.min_col, merged_range.max_row, merged_range.max_col
+
+        for row in range(min_row, max_row + 1):
+
+            for col in range(min_col, max_col + 1):
+                df.at[row, col] = value
+    return df
+
+
+def dataframe_convert(sheet, file_path_, project_name_):
+    """
+    Convert data from an Excel sheet into DataFrames, process merged areas, group devices,
+    remove unnecessary columns/rows, and determine important positions in the table.
+
+    Args:
+        sheet (Worksheet): The Excel worksheet to process.
+        file_path_ (str): Path to the Excel file.
+        project_name_ (str): Project name.
+
+    Returns:
+        tuple: (df_12_begin_row_in_spec, df_data_in_spec, index_column_class, index_column_zone, index_column_attributes, index_column_OptionPackage, index_column_config_end)
+            - df_12_begin_row_in_spec: DataFrame of header rows (ZONE to before Class).
+            - df_data_in_spec: DataFrame of main data (from Class onward, with deleted rows removed).
+            - index_column_class: Column index of "Class".
+            - index_column_zone: Column index of "ZONE".
+            - index_column_attributes: Column index of "Attributes".
+            - index_column_OptionPackage: Column index of "Option Package".
+            - index_column_config_end: Last column index of configuration.
+
+    Notes:
+        - This function performs cleaning, grouping, and table structure detection.
+        - Logs input variables for debugging purposes.
+    """
+    all_variables = dir()
+    with open('dataframe_convert_input.txt', 'w' , encoding='utf-8') as f:
+        for item in all_variables:
+            f.write(str(item) + "=" + str(eval(item)) + '\n')
+    column_number = [1, 4, 6, 8]
+    df = unmerge_and_fill(sheet)
+
+    df.dropna(axis=1, how='all', inplace=True)
+    # ************************************************
+    result = df.stack()
+    index_row_zone = result[result == 'ZONE'].index[0][1]
+    column_number_1 = range(index_row_zone, df.shape[1] + 1)
+    delete_columns = find_color_columns(sheet, column_number_1, index_row_zone)
+    df.drop(columns=delete_columns, inplace=True)
+
+    opt_index = df.shape[0] + 1
+    index_column_config_end = df.shape[1]
+    gray_cells_list, blue_cells_list_old, delete_cells = find_color_cell(sheet, column_number)
+    blue_cells_list_old = [('UNKNOW_device', 0)] + blue_cells_list_old + [('xxx', opt_index)]
+    gray_cells_list = [('UNKNOW_device_group', 0)] + gray_cells_list + [('xxx', blue_cells_list_old[-1][1] - 1)]
+    delete_cells = list(set(delete_cells))
+    delete_cells = sorted(delete_cells)
+    set_gray_cells_list_values = {value for _, value in gray_cells_list}
+    blue_cells_list = []
+    for item in blue_cells_list_old:
+        device, value = item
+        if (value - 1) in set_gray_cells_list_values:
+            blue_cells_list.append((device, value - 1))
+        else:
+            blue_cells_list.append(item)
+    index_gray_old = 0
+    value_gray_old = 'xxx'
+
+    for item in gray_cells_list:
+        if item[0] == 'UNKNOW_device_group':
+            value_gray_old = item[0]
+            index_gray_old = item[1]
+        else:
+            df.loc[index_gray_old:item[1], 'device_group'] = value_gray_old
+            value_gray_old = item[0]
+            index_gray_old = item[1]
+    index_blue_old = 0
+    value_blue_old = 'xxx'
+    for item in blue_cells_list:
+        if item[0] == 'UNKNOW_device':
+            value_blue_old = item[0]
+            index_blue_old = item[1]
+        else:
+            df.loc[index_blue_old:item[1], 'device_name'] = value_blue_old
+            value_blue_old = item[0]
+            index_blue_old = item[1]
+
+    df_end = df.iloc[:opt_index]
+    result = df_end.stack()
+    index_column_class = result[result == 'Class'].index[0][1]
+    index_row_class = result[result == 'Class'].index[0][0]
+    index_row_zone = result[result == 'ZONE'].index[0][0]
+    index_column_zone = result[result == 'ZONE'].index[0][1]
+    index_column_attributes = result[result == 'Attributes'].index[0][1]
+    index_column_OptionPackage = result[result == 'Option Package'].index[0][1]
+    df_12_begin_row_in_spec = df_end.loc[index_row_zone:index_row_class - 1, index_column_zone:]
+    df_12_begin_row_in_spec = df_12_begin_row_in_spec.iloc[:, :-2]
+    df_data_in_spec = df_end.iloc[index_row_class:, index_column_class - 1:]
+    df_data_in_spec.drop(index=delete_cells, inplace=True)
+    num_columns_before = df_12_begin_row_in_spec.shape[1]
+    df_12_begin_row_in_spec.dropna(axis=1, how='all', inplace=True)
+    num_columns_after = df_12_begin_row_in_spec.shape[1]
+    num_deleted_columns = num_columns_before - num_columns_after
+    index_column_config_end -= num_deleted_columns
+    return df_12_begin_row_in_spec, df_data_in_spec, index_column_class, index_column_zone, index_column_attributes, index_column_OptionPackage, index_column_config_end
+
+
+def main_process_spec_not_protected(file_path_, project_name_):
+    """
+    Main processing function for unprotected spec files: reads the sheet, converts data, and returns important data regions.
+
+    Args:
+        file_path_ (str): Path to the spec Excel file.
+        project_name_ (str): Project name.
+
+    Returns:
+        tuple: (df_end_region3_, [df_end_1_, index_column_class, index_column_zone, index_column_attributes, index_column_OptionPackage, index_column_config_end])
+            - df_end_region3_: DataFrame of header rows (ZONE to before Class).
+            - df_end_1_: DataFrame of main data (from Class onward, with deleted rows removed).
+            - index_column_class: Column index of "Class".
+            - index_column_zone: Column index of "ZONE".
+            - index_column_attributes: Column index of "Attributes".
+            - index_column_OptionPackage: Column index of "Option Package".
+            - index_column_config_end: Last column index of configuration.
+
+    Notes:
+        - This is the entry point for processing unprotected spec files.
+        - Depends on other detailed data processing functions.
+    """
+    wb = load_workbook(file_path_)
+    sheet = wb['1-SPEC']
+    df_end_region3_, df_end_1_, index_column_class, index_column_zone, index_column_attributes, index_column_OptionPackage, index_column_config_end = dataframe_convert(
+        sheet, file_path_, project_name_)
+    return df_end_region3_, [df_end_1_, index_column_class, index_column_zone, index_column_attributes,
+                             index_column_OptionPackage, index_column_config_end]
+
+
+***************************************************************** file create_syo_new_edit.py
+import re
+import pandas as pd
+from .edit_syo_new import process_dataframe
+from .check_filed_information import normalize_japanese_text
+
+
+def create_syo(form_syo, data_for_create):
+    """
+    Generates a new SYO DataFrame by filling in configuration values based on a template and specification data.
+
+    Args:
+        form_syo (DataFrame): The SYO form template to be filled.
+        data_for_create (tuple): A tuple containing:
+            - data_spec (DataFrame): The specification data.
+            - col_option (int): The column index for options in the spec.
+            - col_start_config (int): The starting column index for configuration.
+            - col_attribute (int): The column index for attributes.
+            - col_option_code (int): The column index for option codes.
+            - col_end_config (int): The ending column index for configuration.
+
+    Returns:
+        DataFrame: The completed SYO DataFrame after processing and filling all necessary values.
+
+    Notes:
+        - The function normalizes all string values in both `form_syo` and `data_spec`.
+        - It creates a dictionary of option codes based on the "OptionCode" row in the form.
+        - For each row in the form, it determines how to fill values based on the "keyword" and "CADICS ID" columns,
+          using the `nhap` function and handling complex option patterns.
+        - The function logs all local variables to 'create_syo_input.txt' for debugging.
+        - After filling, it restores any dropped columns and applies additional post-processing to the DataFrame.
+    """
+    class_option = ''
+    data_spec, col_option, col_start_config, col_attribute, col_option_code, col_end_config = data_for_create
+    form_syo = form_syo.fillna("")
+    data_spec = data_spec.fillna("")
+    data_spec = data_spec.applymap(lambda x: normalize_japanese_text(x) if isinstance(x, str) else x)
+    form_syo = form_syo.applymap(lambda x: normalize_japanese_text(x) if isinstance(x, str) else x)
+    form_syo = form_syo.reset_index(drop=True)
+
+    df_insert = form_syo[['group_key_map', 'default']]
+    form_syo = form_syo.drop(columns=['group_key_map', 'default'])
+
+    column_name = list(range(data_spec.shape[1]))
+    data_spec.columns = column_name
+
+    col_option = col_option - 1
+    col_start_config = col_start_config  # in spec
+    col_end_config = col_end_config  # in spec
+    col_option_code = col_option_code - 1  # in spec
+    col_attribute = col_attribute - 1  # in spec
+
+    dict_option_code = {}
+    # Determine the starting point
+    index_start = form_syo[form_syo["auto"] == "X01_VISIBILITY"].index
+    index_option_code = form_syo[form_syo["CADICS ID"] == "OptionCode"].index
+
+    # Determine optioncode
+    for index in range(4, len(form_syo.columns)):
+        config = form_syo.columns[index]
+        header = form_syo.columns[index]
+        dict_option_code[config] = str(form_syo[header][int(index_option_code[0])])
+    # EG: dict_option_code={'conf-001': 'SPTR6', 'conf-002': 'NAVI3,RRBY3,EQIPD', 'conf-003': 'CLAS2,EQIPC'}
+    for index in range(int(index_start[0]), index_option_code[0]):
+        keyword_col_C = form_syo["keyword"][index]
+        keyword_col_C = keyword_col_C.replace('\n', "")
+        if keyword_col_C == '':
+            value_in_cadics_columns = form_syo["CADICS ID"][index].upper()
+            value_in_auto_columns = form_syo["auto"][index].upper()
+            if value_in_cadics_columns == '' and value_in_auto_columns != '':
+                class_option = form_syo["auto"][index].upper()
+        else:
+            if keyword_col_C == 'ALL' or keyword_col_C == 'w,w/o':
+                LIST_HIENTHI = ["w", "w/o"]
+                if keyword_col_C == 'ALL':
+                    LIST_HIENTHI = ["ALL", "-"]
+
+                option = form_syo["CADICS ID"][index].upper()
+                nhap(form_syo, data_spec, index, col_option, dict_option_code, col_start_config, col_end_config,
+                     col_option_code, col_attribute, column_name, class_option, option, LIST_HIENTHI)
+            elif '(ALL)' in keyword_col_C or '(w,w/o)' in keyword_col_C:
+                LIST_HIENTHI = ["w", "w/o"]
+                if '(ALL)' in keyword_col_C:
+                    LIST_HIENTHI = ["ALL", "-"]
+                option = keyword_col_C.replace("(ALL)", "")
+                option = option.replace("(w,w/o)", "").upper()
+                nhap(form_syo, data_spec, index, col_option, dict_option_code, col_start_config, col_end_config,
+                     col_option_code, col_attribute, column_name, class_option, option, LIST_HIENTHI)
+            else:
+                parts = custom_split(keyword_col_C)
+                for item in parts:
+                    item = item.strip()
+                    try:
+                        result_yes = re.search(r'\(([^()]+)\)$', item).group(1)
+                        result_yes_split = result_yes.split(",")
+                        if len(result_yes_split) == 1:
+                            LIST_HIENTHI = [result_yes_split[0], "-"]
+                        else:
+                            LIST_HIENTHI = [result_yes_split[0], result_yes_split[1]]
+                        option = re.sub(r'\([^()]+\)$', '', item).strip().upper()
+
+                        nhap(form_syo, data_spec, index, col_option, dict_option_code, col_start_config, col_end_config,
+                             col_option_code, col_attribute, column_name, class_option, option, LIST_HIENTHI)
+
+                    except:
+                        LIST_HIENTHI = [item, "-"]
+                        option = item.strip().upper()
+                        nhap(form_syo, data_spec, index, col_option, dict_option_code, col_start_config,
+                             col_end_config,
+                             col_option_code, col_attribute, column_name, class_option, option, LIST_HIENTHI)
+    df_combined = pd.concat([form_syo, df_insert], axis=1)
+    df_2 = process_dataframe(df_combined)
+    return df_2
+
+
+def custom_split(s):
+    """
+    Splits the input string into parts based on commas (','),
+    but ignores commas that are inside parentheses.
+
+    Args:
+        s (str): The input string to split.
+
+    Returns:
+        list: A list of substrings after splitting.
+
+    Example:
+        custom_split("a,b,(c,d),e") returns ['a', 'b', '(c,d)', 'e']
+    """
+    parts = []
+    in_parentheses = False
+    current_part = ""
+    for char in s:
+        if char == "(":
+            in_parentheses = True
+        elif char == ")":
+            in_parentheses = False
+        if char == "," and not in_parentheses:
+            parts.append(current_part)
+            current_part = ""
+        else:
+            current_part += char
+    parts.append(current_part)
+    return parts
+
+
+def nhap(form_syo, data_spec, index, col_option, dict_option_code, col_start_config, col_end_config,
+         col_option_code, col_attribute, column_name, class_option, option, LIST_HIENTHI):
+    """
+    Fills in values into the `form_syo` DataFrame based on the provided options and configuration data.
+
+    Args:
+        form_syo (DataFrame): The form to be filled.
+        data_spec (DataFrame): The specification data used for lookup.
+        index (int): The row index in `form_syo` to fill.
+        col_option (str): The column name in `data_spec` to match the option.
+        dict_option_code (dict): Dictionary mapping config keys to option codes.
+        col_start_config (int): The starting column index for configuration.
+        col_end_config (int): The ending column index for configuration.
+        col_option_code (str): The column name for option codes.
+        col_attribute (str): The column name for attribute values.
+        column_name (list): List of column names in `data_spec`.
+        class_option (str): The class option to use if the option is not found.
+        option (str): The option value to look up.
+        LIST_HIENTHI (list): List of display replacement values.
+
+    Returns:
+        None: The function modifies `form_syo` in place.
+
+    Notes:
+        - Handles both the case when the option is found and not found in `data_spec`.
+        - Applies replacement rules based on `LIST_HIENTHI`.
+    """
+    result = data_spec[data_spec[col_option] == option]
+    if len(result) > 0:  # Case option is found
+        result = result.reset_index(drop=True)
+        list_data = option_in_A(result, dict_option_code, col_start_config, col_end_config,
+                                col_option_code, col_attribute, 1)
+        if LIST_HIENTHI != ["ALL", "-"]:
+            replacement_value = LIST_HIENTHI[0]
+            for i in range(len(list_data)):
+                if list_data[i] != '-' and list_data[i] != '' and ':' not in list_data[i]:
+                    list_data[i] = replacement_value
+                else:
+                    try:
+                        if list_data[i] != '' and ':' not in list_data[i]:
+                            list_data[i] = LIST_HIENTHI[1]
+                        if ':' in list_data[i]:
+                            list_data[i] = ''
+                    except:
+                        pass
+    else:
+        result = data_spec[data_spec[column_name[-1]] == class_option]  # 1 là cột class
+        if LIST_HIENTHI == ["ALL", "-"]:
+            LIST_HIENTHI = ["w", "w/o"]
+        list_data = option_in_D(option, result, dict_option_code, col_start_config, col_end_config,
+                                col_option_code, col_attribute, col_option, LIST_HIENTHI)
+    col_start = 4
+
+    for item in list_data:
+
+        try:
+            if form_syo.iat[index, col_start] == "" or form_syo.iat[index, col_start] == "-":
+                form_syo.iat[index, col_start] = item
+        except:
+            form_syo[col_start] = ''
+            form_syo.iat[index, col_start] = item
+        finally:
+            col_start = col_start + 1
+
+
+def option_in_A(result, dict_option_code, col_start_config, col_end_config,
+                col_option_code, col_attribute, flag):
+    """
+    Extracts configuration attributes and option codes from a DataFrame segment.
+
+    Args:
+        result (DataFrame): The filtered DataFrame to process.
+        dict_option_code (dict): Dictionary mapping config keys to option codes.
+        col_start_config (int): The starting column index for configuration.
+        col_end_config (int): The ending column index for configuration.
+        col_option_code (str): The column name for option codes.
+        col_attribute (str): The column name for attribute values.
+        flag (int): Determines the format of the return value.
+
+    Returns:
+        list or dict: If `flag` is 1, returns a list of configuration values and attributes.
+                      If `flag` is 0, returns a dictionary mapping config keys to attributes.
+        EG: list_data: list_data=['-', '-', '-', 'S1', '-', '-', '-', 'S1', '-', '-', '-', 'S1', '-', '-', '-', 'S1', '-',
+        '-', '-', '-', 'HEAT3', 'S1: BATTERY HEATING']
+        dict_config_value={'conf-001': 'BASIC', 'conf-002': 'BASIC', 'conf-003': 'BASIC', 'conf-004': 'BASIC', 'conf-005': 'BASIC',
+        'conf-006': 'BASIC', 'conf-007': 'BASIC', 'conf-008': 'BASIC', 'conf-009': 'BASIC', 'conf-010': 'BASIC', 'conf-011': 'BASIC',
+        'conf-012': 'BASIC', 'conf-013': 'BASIC', 'conf-014': 'BASIC', 'conf-015': 'BASIC', 'conf-016': 'BASIC', 'conf-017': 'BASIC',
+        'conf-018': 'BASIC', 'conf-019': 'BASIC', 'conf-020': 'BASIC'}
+
+    Notes:
+        - Handles both option code and attribute extraction.
+        - Converts attribute names to labels like S1, S2, etc., if `flag` is 1.
+    """
+    dict_config_value = {}
+    list_option_code_all = []
+    list_attribute = []
+    index_config = 1
+    for address_config in range(col_start_config, col_end_config):
+
+        if index_config < 10:
+            config = "conf-00" + str(index_config)
+        if 9 < index_config < 100:
+            config = "conf-0" + str(index_config)
+
+        list_option_code = []
+        index_attribute_o = result[result[address_config] == "Opt."].index
+        attribute = "-"
+        # =============================Get optioncode===================================
+        if len(index_attribute_o) > 0:
+            for index in range(len(index_attribute_o)):
+                option_code = result[col_option_code][index_attribute_o[index]]
+                if isinstance(option_code, str) and option_code != "":
+                    list_option_code.append(option_code)
+            # =============================== Case ==========================================
+
+            syo_option_code = str(dict_option_code[config]).split(",")
+            has_option = set(list_option_code).issubset(set(syo_option_code))
+            if has_option:
+                list_option_code_all = list_option_code_all + list_option_code
+                attribute = result[col_attribute][index_attribute_o[0]]
+                if attribute not in list_attribute:
+                    list_attribute.append(attribute)
+
+        if attribute == "-":
+            index_attribute_d = result[result[address_config] == "D"].index
+
+            if len(index_attribute_d) > 0:
+                attribute = result[col_attribute][index_attribute_d[0]]
+                if attribute not in list_attribute and attribute != "-":
+                    list_attribute.append(attribute)
+            else:
+                index_attribute_s = result[result[address_config] == "S"].index
+                if len(index_attribute_s) > 0:
+                    attribute = result[col_attribute][index_attribute_s[0]]
+                if attribute not in list_attribute and attribute != "-":
+                    list_attribute.append(attribute)
+
+        index_config = index_config + 1
+        dict_config_value[config] = attribute
+
+    # Convert Attribute to S, S2, S3 .....
+    if flag == 1:
+        for config, attribute in dict_config_value.items():
+            if attribute != "-":
+                index = list_attribute.index(attribute)
+                dict_config_value[config] = "S" + str(index + 1)
+
+        for index in range(len(list_attribute)):
+            list_attribute[index] = "S" + str(index + 1) + ": " + str(list_attribute[index])
+
+        list_option_code_all = list(dict.fromkeys(list_option_code_all))
+        comment_option = str(list_option_code_all)
+        for sys in ["[", "]", "'"]:
+            comment_option = comment_option.replace(sys, "")
+        list_attribute.insert(0, comment_option)
+        # EG: list_attribute=['HEAT3', 'S1: BATTERY HEATING']
+        values_list = list(dict_config_value.values())
+        # EG: values_list=['-', '-', '-', 'S1', '-', '-', '-', 'S1', '-', '-', '-', 'S1', '-', '-', '-', 'S1', '-', '-', '-', '-']
+        list_data = values_list + list_attribute
+        return list_data
+    else:
+        return dict_config_value
+
+
+def option_in_D(attribute, result, dict_option_code, col_start_config, col_end_config,
+                col_option_code, col_attribute, col_option, LIST_HIENTHI):
+    """
+    Processes attributes and fills configuration values based on complex attribute patterns.
+
+    Args:
+        attribute (str): The attribute string to process (may contain '+' or '✚').
+        result (DataFrame): The filtered DataFrame to process.
+        dict_option_code (dict): Dictionary mapping config keys to option codes.
+        col_start_config (int): The starting column index for configuration.
+        col_end_config (int): The ending column index for configuration.
+        col_option_code (str): The column name for option codes.
+        col_attribute (str): The column name for attribute values.
+        col_option (str): The column name for options.
+        LIST_HIENTHI (list): List of display replacement values.
+
+    Returns:
+        list: List of configuration values based on the attribute and options.
+        EG: ['w/o', 'w/o', 'w/o', 'w/o', 'w/o', 'w/o', 'w/o', 'w/o', 'w/o', 'w/o', 'w/o', 'w/o', 'w/o', 'w/o', 'w/o', 'w/o', 'w/o', 'w/o', 'w/o', 'w/o']
+
+    Notes:
+        - Supports processing of multiple attributes joined by '+' or '✚'.
+        - Applies display replacement rules based on `LIST_HIENTHI`.
+
+    """
+    list_vip = []
+    if '✚' in attribute or '+' in attribute:
+        list_attribute = re.split(r"[✚+]", attribute)
+        # EG: list_attribute=['HEAT3', 'S1: BATTERY HEATING']
+        dict_check = {}
+        dict_check_1 = {}
+        for item in list_attribute:
+            filter_attribute = result[result[col_attribute].str.contains(item, regex=False, na=False)]
+            if len(filter_attribute) > 0:
+
+                list_option = filter_attribute[col_option].dropna().unique()
+                #eg: list_option=['TAILGATE/TRUNK OPENING']
+                for option in list_option:
+                    sub_result = result[result[col_option] == option]
+                    sub_result = sub_result.reset_index(drop=True)
+
+                    dict_config_value = option_in_A(sub_result, dict_option_code, col_start_config, col_end_config,
+                                                    col_option_code, col_attribute, 0)
+                    for config, value in dict_config_value.items():
+                        if config not in dict_check.keys():
+                            dict_check[config] = value
+                        else:
+                            dict_check[config] = dict_check[config] + "+" + value
+                for config_1, value_1 in dict_check.items():
+                    if item in value_1:
+                        if item not in list_vip:
+                            list_vip.append(item)
+                        if len(list_vip) == 1:
+                            dict_check_1[config_1] = item
+                        elif len(list_vip) > 1:
+                            dict_check_1[config_1] += ('✚' + item)
+                    else:
+                        dict_check_1[config_1] = '-'
+
+            else:
+                list_data = [LIST_HIENTHI[1]] * (col_end_config - col_start_config)
+                return list_data
+        # EG: dict_check_1={'conf-001': '-', 'conf-002': '-', 'conf-003': 'POWER OPEN/CLOSE ✚ HANDS FREE',
+        # 'conf-004': 'POWER OPEN/CLOSE ✚ HANDS FREE', 'conf-005': '-', 'conf-006': '-',
+        # 'conf-007': 'POWER OPEN/CLOSE ✚ HANDS FREE', 'conf-008': 'POWER OPEN/CLOSE ✚ HANDS FREE',
+        # 'conf-009': '-', 'conf-010': '-', 'conf-011': 'POWER OPEN/CLOSE ✚ HANDS FREE',
+        # 'conf-012': 'POWER OPEN/CLOSE ✚ HANDS FREE', 'conf-013': '-', 'conf-014': '-',
+        # 'conf-015': 'POWER OPEN/CLOSE ✚ HANDS FREE', 'conf-016': 'POWER OPEN/CLOSE ✚ HANDS FREE',
+        # 'conf-017': '-', 'conf-018': 'POWER OPEN/CLOSE ✚ HANDS FREE', 'conf-019': 'POWER OPEN/CLOSE ✚ HANDS FREE',
+        # 'conf-020': 'POWER OPEN/CLOSE ✚ HANDS FREE'}
+        list_data = list(dict_check_1.values())
+        if LIST_HIENTHI == ['w', 'w/o']:
+            for i in range(len(list_data)):
+                if list_data[i] != '-' and list_data[i] != '' and ':' not in list_data[i]:
+                    list_data[i] = LIST_HIENTHI[0]
+                if list_data[i] == '-':
+                    list_data[i] = LIST_HIENTHI[1]
+                if ':' in list_data[i]:
+                    list_data[i] = ''
+        return list_data
+
+    else:
+        filter_attribute = result[result[col_attribute].str.contains(attribute, regex=False, na=False)]
+        if len(filter_attribute) > 0:
+            dict_check = {}
+            list_option = filter_attribute[col_option].dropna().unique()
+
+            for option in list_option:
+                sub_result = result[result[col_option] == option]
+                sub_result = sub_result.reset_index(drop=True)
+
+                dict_config_value = option_in_A(sub_result, dict_option_code, col_start_config, col_end_config,
+                                                col_option_code, col_attribute, 0)
+
+                for config, value in dict_config_value.items():
+                    if config not in dict_check.keys():
+                        dict_check[config] = value
+                    else:
+                        dict_check[config] = dict_check[config] + " + " + value
+
+            for config, value in dict_check.items():
+                if attribute in value:
+                    dict_check[config] = LIST_HIENTHI[0]
+                else:
+                    dict_check[config] = LIST_HIENTHI[1]
+
+            list_data = list(dict_check.values())
+
+        else:
+            list_data = [LIST_HIENTHI[1]] * (col_end_config - col_start_config)
+        return list_data
+
+
+hãy đọc code hiểu, phân tích, lập luận, phản biện để hiểu luồng code chi tiết và giải thích lại cho tôi
+

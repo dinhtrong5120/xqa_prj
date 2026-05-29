@@ -1,0 +1,67 @@
+/* .element-container:has(style){
+    display: none;
+}
+.button-green {
+    display: none;
+}
+.element-container:has(.button-green) {
+    display: none;
+}
+
+.element-container:has(.button-green) + div button {
+  color: black;
+  border: 1px solid white;
+  /* background: linear-gradient(to right,  #000046, #1cb5e0) */
+  /* background: #75a3d4 */
+  /* }   */
+
+.e1obcldf2 {
+  color: white;
+  /* border: 1px solid white; */
+  background:#47709b 
+} 
+.st-emotion-cache-119t65p{
+  gap: 0rem;
+}
+.st-emotion-cache-1k2y565 {
+  gap: 0rem;
+}
+.st-emotion-cache-1jicfl2 {
+  padding-top: 2rem;
+}
+
+.st-key-itest span {
+  background-color: #020A39;
+
+}
+.st-key-itest span .st-ax{
+  max-width: 100%;
+}
+
+.st-key-itest span .st-ag{
+  overflow: inherit;
+  max-width: 200px;
+  /* background-color: rgb(27, 119, 212); */
+}
+
+.ant-menu-submenu-title span{
+  font-size: 24px;
+  font-weight: bold;
+}
+
+/* .st-key-dev span {
+  background-color: rgb(27, 119, 212);
+
+} */
+.st-key-dev span{
+  max-width: 100%;
+  background-color: #020A39;
+}
+.st-key-dev p span{
+  max-width: 100%;
+  background: none;
+}
+
+/* .st-key-dev_prokan .st-ax{
+  background-color: rgb(27, 119, 212);
+} */

@@ -1,0 +1,125 @@
+Tôi có loggìn sau trênbanr production:
+
+2025-12-26 01:31:05,984 - INFO - Inserting device detail: EDCA for device ADAS SAFETY
+2025-12-26 01:31:05,985 - INFO - Updating device detail: AC-INV
+2025-12-26 01:31:05,989 - ERROR - Error updating device detail AC-INV: (raised as a result of Query-invoked autoflush; consider using a session.no_autoflush block if this flush is occurring prematurely)
+(mysql.connector.errors.IntegrityError) 1062 (23000): Duplicate entry 'EDCA-ADAS SAFETY' for key 'device_details.device_details_name_UNIQUE'
+[SQL: INSERT INTO device_details (device_details_id, device_name, device_details_name, group_detail, option_detail, auto_detail, group_key_map, `default`) VALUES (%(device_details_id)s, %(device_name)s, %(device_details_name)s, %(group_detail)s, %(option_detail)s, %(auto_detail)s, %(group_key_map)s, %(default)s)]
+[parameters: {'device_details_id': 2201, 'device_name': 'ADAS SAFETY', 'device_details_name': 'EDCA', 'group_detail': 'XQ3AD', 'option_detail': 'w', 'auto_detail': '', 'group_key_map': 'default_key', 'default': None}]
+(Background on this error at: https://sqlalche.me/e/20/gkpj)
+2025-12-26 01:31:06,010 - ERROR - Traceback (most recent call last):
+  File "/usr/local/lib/python3.10/dist-packages/mysql/connector/connection_cext.py", line 661, in cmd_query
+    self._cmysql.query(
+_mysql_connector.MySQLInterfaceError: Duplicate entry 'EDCA-ADAS SAFETY' for key 'device_details.device_details_name_UNIQUE'
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.10/dist-packages/sqlalchemy/engine/base.py", line 1970, in _exec_single_context
+    self.dialect.do_execute(
+  File "/usr/local/lib/python3.10/dist-packages/sqlalchemy/engine/default.py", line 924, in do_execute
+    cursor.execute(statement, parameters)
+  File "/usr/local/lib/python3.10/dist-packages/mysql/connector/cursor_cext.py", line 374, in execute
+    result = self._cnx.cmd_query(
+  File "/usr/local/lib/python3.10/dist-packages/mysql/connector/opentelemetry/context_propagation.py", line 74, in wrapper
+    return method(cnx, *args, **kwargs)
+  File "/usr/local/lib/python3.10/dist-packages/mysql/connector/connection_cext.py", line 669, in cmd_query
+    raise get_mysql_exception(
+mysql.connector.errors.IntegrityError: 1062 (23000): Duplicate entry 'EDCA-ADAS SAFETY' for key 'device_details.device_details_name_UNIQUE'
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/var/www/html/Create_syo_new/xqa_web/app/logics/syo/db/function_database_new.py", line 634, in update_data_new
+    ).first()
+  File "/usr/local/lib/python3.10/dist-packages/sqlalchemy/orm/query.py", line 2728, in first
+    return self.limit(1)._iter().first()  # type: ignore
+  File "/usr/local/lib/python3.10/dist-packages/sqlalchemy/orm/query.py", line 2827, in _iter
+    result: Union[ScalarResult[_T], Result[_T]] = self.session.execute(
+  File "/usr/local/lib/python3.10/dist-packages/sqlalchemy/orm/session.py", line 2306, in execute
+    return self._execute_internal(
+  File "/usr/local/lib/python3.10/dist-packages/sqlalchemy/orm/session.py", line 2170, in _execute_internal
+    ) = compile_state_cls.orm_pre_session_exec(
+  File "/usr/local/lib/python3.10/dist-packages/sqlalchemy/orm/context.py", line 549, in orm_pre_session_exec
+    session._autoflush()
+  File "/usr/local/lib/python3.10/dist-packages/sqlalchemy/orm/session.py", line 3005, in _autoflush
+    raise e.with_traceback(sys.exc_info()[2])
+  File "/usr/local/lib/python3.10/dist-packages/sqlalchemy/orm/session.py", line 2994, in _autoflush
+    self.flush()
+  File "/usr/local/lib/python3.10/dist-packages/sqlalchemy/orm/session.py", line 4296, in flush
+    self._flush(objects)
+  File "/usr/local/lib/python3.10/dist-packages/sqlalchemy/orm/session.py", line 4431, in _flush
+    with util.safe_reraise():
+  File "/usr/local/lib/python3.10/dist-packages/sqlalchemy/util/langhelpers.py", line 146, in __exit__
+    raise exc_value.with_traceback(exc_tb)
+  File "/usr/local/lib/python3.10/dist-packages/sqlalchemy/orm/session.py", line 4392, in _flush
+    flush_context.execute()
+  File "/usr/local/lib/python3.10/dist-packages/sqlalchemy/orm/unitofwork.py", line 466, in execute
+    rec.execute(self)
+  File "/usr/local/lib/python3.10/dist-packages/sqlalchemy/orm/unitofwork.py", line 642, in execute
+    util.preloaded.orm_persistence.save_obj(
+  File "/usr/local/lib/python3.10/dist-packages/sqlalchemy/orm/persistence.py", line 93, in save_obj
+    _emit_insert_statements(
+  File "/usr/local/lib/python3.10/dist-packages/sqlalchemy/orm/persistence.py", line 1048, in _emit_insert_statements
+    result = connection.execute(
+  File "/usr/local/lib/python3.10/dist-packages/sqlalchemy/engine/base.py", line 1421, in execute
+    return meth(
+  File "/usr/local/lib/python3.10/dist-packages/sqlalchemy/sql/elements.py", line 514, in _execute_on_connection
+    return connection._execute_clauseelement(
+  File "/usr/local/lib/python3.10/dist-packages/sqlalchemy/engine/base.py", line 1643, in _execute_clauseelement
+    ret = self._execute_context(
+  File "/usr/local/lib/python3.10/dist-packages/sqlalchemy/engine/base.py", line 1849, in _execute_context
+    return self._exec_single_context(
+  File "/usr/local/lib/python3.10/dist-packages/sqlalchemy/engine/base.py", line 1989, in _exec_single_context
+    self._handle_dbapi_exception(
+  File "/usr/local/lib/python3.10/dist-packages/sqlalchemy/engine/base.py", line 2356, in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+  File "/usr/local/lib/python3.10/dist-packages/sqlalchemy/engine/base.py", line 1970, in _exec_single_context
+    self.dialect.do_execute(
+  File "/usr/local/lib/python3.10/dist-packages/sqlalchemy/engine/default.py", line 924, in do_execute
+    cursor.execute(statement, parameters)
+  File "/usr/local/lib/python3.10/dist-packages/mysql/connector/cursor_cext.py", line 374, in execute
+    result = self._cnx.cmd_query(
+  File "/usr/local/lib/python3.10/dist-packages/mysql/connector/opentelemetry/context_propagation.py", line 74, in wrapper
+    return method(cnx, *args, **kwargs)
+  File "/usr/local/lib/python3.10/dist-packages/mysql/connector/connection_cext.py", line 669, in cmd_query
+    raise get_mysql_exception(
+sqlalchemy.exc.IntegrityError: (raised as a result of Query-invoked autoflush; consider using a session.no_autoflush block if this flush is occurring prematurely)
+(mysql.connector.errors.IntegrityError) 1062 (23000): Duplicate entry 'EDCA-ADAS SAFETY' for key 'device_details.device_details_name_UNIQUE'
+[SQL: INSERT INTO device_details (device_details_id, device_name, device_details_name, group_detail, option_detail, auto_detail, group_key_map, `default`) VALUES (%(device_details_id)s, %(device_name)s, %(device_details_name)s, %(group_detail)s, %(option_detail)s, %(auto_detail)s, %(group_key_map)s, %(default)s)]
+[parameters: {'device_details_id': 2201, 'device_name': 'ADAS SAFETY', 'device_details_name': 'EDCA', 'group_detail': 'XQ3AD', 'option_detail': 'w', 'auto_detail': '', 'group_key_map': 'default_key', 'default': None}]
+(Background on this error at: https://sqlalche.me/e/20/gkpj)
+
+2025-12-26 01:31:06,011 - INFO - Updating device detail: DIRECT ADAPTIVE STEERING
+2025-12-26 01:31:06,019 - INFO - Updating device detail: MAX C.W.
+TOTAL
+2025-12-26 01:31:06,022 - INFO - Updating device detail: MAX C.W.
+FR
+2025-12-26 01:31:06,025 - INFO - Updating device detail: MAX C.W.
+RR
+2025-12-26 01:31:06,027 - INFO - Updating device detail: RES
+2025-12-26 01:31:06,034 - INFO - Commit DB thành công cho project L53M - bắt đầu các bước bổ sung pipeline các bảng phụ
+
+**************************************log của bản chạy local ở phần này:
+
+2025-12-26 08:50:07,496 - INFO - Updating device detail: AC-INV
+2025-12-26 08:50:07,504 - INFO - Updating device detail: DIRECT ADAPTIVE STEERING
+2025-12-26 08:50:07,509 - INFO - Updating device detail: MAX C.W.
+TOTAL
+2025-12-26 08:50:07,509 - INFO - Updating device detail: MAX C.W.
+FR
+2025-12-26 08:50:07,517 - INFO - Updating device detail: MAX C.W.
+RR
+2025-12-26 08:50:07,526 - INFO - Updating device detail: RES
+2025-12-26 08:50:07,528 - INFO - Updating device detail: AC-INV
+2025-12-26 08:50:07,533 - INFO - Updating device detail: DIRECT ADAPTIVE STEERING
+2025-12-26 08:50:07,539 - INFO - Updating device detail: MAX C.W.
+TOTAL
+2025-12-26 08:50:07,544 - INFO - Updating device detail: MAX C.W.
+FR
+2025-12-26 08:50:07,547 - INFO - Updating device detail: MAX C.W.
+RR
+2025-12-26 08:50:07,550 - INFO - Updating device detail: RES
+2025-12-26 08:50:07,552 - INFO - Commit DB thành công cho project WZ1L - bắt đầu các bước bổ sung pipeline các bảng phụ
+
+phân tích lỗi, lập luận, phản biện chi tiết và đưa ra tại sao lỗi trên

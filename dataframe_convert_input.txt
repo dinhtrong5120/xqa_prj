@@ -1,0 +1,6 @@
+file_path_=UploadedFile(file_id='898ec1ff-62c4-48f0-84f9-fee8188315aa', name='Spec_List_P62A.xlsx', type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', size=91015, _file_urls=file_id: "898ec1ff-62c4-48f0-84f9-fee8188315aa"
+upload_url: "/_stcore/upload_file/7fc97d70-6a76-49e1-8137-8d72fcc5215e/898ec1ff-62c4-48f0-84f9-fee8188315aa"
+delete_url: "/_stcore/upload_file/7fc97d70-6a76-49e1-8137-8d72fcc5215e/898ec1ff-62c4-48f0-84f9-fee8188315aa"
+)
+project_name_=P62A
+sheet=<Worksheet "1-SPEC">

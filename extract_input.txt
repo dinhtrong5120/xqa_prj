@@ -1,0 +1,2 @@
+file_path=/var/www/html/Create_syo_new/xqa_web/app/datas/L53M/関連表L53M.zip
+output_dir=/var/www/html/Create_syo_new/xqa_web/app/datas/L53M
