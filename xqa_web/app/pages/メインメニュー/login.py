@@ -38,8 +38,6 @@ def main():
         st.session_state.button_clicked = True
         # Check if the username and password are correct
         try:
-            username = 'admin'
-            password = '12345678'
             name_user, position, project_query = log_in(username, password)
 
             # name_user, position, project_query = login(username, password, APP_CLIENT_ID, APP_CLIENT_SECRET)

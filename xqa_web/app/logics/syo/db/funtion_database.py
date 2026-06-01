@@ -561,57 +561,51 @@ def query_data(project_name, market, powertrain, develop_case, group, lot, is_cr
         result_df.insert(result_df.shape[1], 'Note_2', '')
 
         main_table_alias = aliased(MainTable)
+
         columns_to_query = [
-            getattr(MainTable, column_name).label(column_name)
+            func.any_value(getattr(MainTable, column_name)).label(column_name)
             for column_name in columns
         ]
+
         substring_columns = [
             func.SUBSTRING_INDEX(
                 func.SUBSTRING_INDEX(
-                    func.GROUP_CONCAT(main_table_alias.value.op('ORDER BY')(main_table_alias.id_app)),
-                    ',', counter + 1),
-                ',', -1
-            )
+                    func.GROUP_CONCAT(
+                        main_table_alias.value.op('ORDER BY')(main_table_alias.id_app)
+                    ),
+                    ',',
+                    counter + 1
+                ),
+                ',',
+                -1
+            ).label(f"value_{counter + 1}")
             for counter in range(0, sum_config)
         ]
+
         query_data = (
-            session.query(*columns_to_query, *substring_columns, MainTable.note_1, MainTable.note_2)
-            .join(main_table_alias,
-                  MainTable.id == main_table_alias.id)
+            session.query(
+                *columns_to_query,
+                *substring_columns,
+                func.any_value(MainTable.note_1).label("note_1"),
+                func.any_value(MainTable.note_2).label("note_2")
+            )
+            .join(main_table_alias, MainTable.id == main_table_alias.id)
             .filter(MainTable.id_project == id_project)
         )
-        # SUA BAT DAU TU DAY
-        # group_digital = session.query(MainTable.kca_project_group_digital).group_by(
-        #     MainTable.kca_project_group_digital).all()
-        # group_ppc = session.query(MainTable.kca_project_group_ppc).group_by(MainTable.kca_project_group_ppc).all()
-        # group_ppe = session.query(MainTable.kca_project_group_ppc).group_by(MainTable.kca_project_group_ppc).all()
-        # all_groups = (*group_digital, *group_ppc, *group_ppe)
-        # unique_groups_set = set(all_groups)
-        # unique_groups = tuple(unique_groups_set)
-        # unique_groups_flat = tuple(item for subtuple in unique_groups for item in subtuple)
-        # unique_groups_set = set(unique_groups_flat)
-        # unique_groups_clean = tuple(unique_groups_set)
-        # # print(group)
-        # if group == "ALL":
-        #     group = unique_groups_clean
-        # if lot == "DS" or lot == "DC":
-        #     query_data = query_data.filter(MainTable.kca_project_group_digital.in_(group))
-        # elif lot == "PFC":
-        #     query_data = query_data.filter(MainTable.kca_project_group_ppc.in_(group))
-        # elif lot == "VC" or lot == "PT1" or lot == "PT2":
-        #     query_data = query_data.filter(MainTable.kca_project_group_ppe.in_(group))
-        # KET THUC SUA
+
         if lot != "ALL":
             lot_lower = lot.lower()
-            query_data = query_data.filter(getattr(MainTable, f'evaluate_or_not_{lot_lower}') == 'YES')
-        # if lot == "ALL":
-        #     query_data = query_data.filter(
-        #         (MainTable.kca_project_group_digital.in_(group)) | (MainTable.kca_project_group_ppc.in_(group)) | (
-        #             MainTable.kca_project_group_ppe.in_(group)))
-        # query_data = query_data.group_by(func.FLOOR((MainTable.id - min_id) / sum_config)).order_by(
-        #     MainTable.cadic_number)
-        query_data = query_data.group_by(MainTable.id_project, MainTable.cadic_number).order_by(
-            MainTable.cadic_number, MainTable.id_app)
+            query_data = query_data.filter(
+                getattr(MainTable, f'evaluate_or_not_{lot_lower}') == 'YES'
+            )
+
+        query_data = query_data.group_by(
+            MainTable.id_project,
+            MainTable.cadic_number
+        ).order_by(
+            MainTable.cadic_number
+        )
+
         data_df = pd.read_sql(query_data.statement, session.bind)
         # print(data_df)
         data_df.insert(data_df.columns.get_loc('common_unique') + 1, 'empty_column', '')
