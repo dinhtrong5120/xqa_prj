@@ -105,11 +105,11 @@ def main():
             col_left_prj_grid_1.selectbox("Plant", ['JPN', 'US', 'EUR', 'PRC'], key="plant_prokan")
             try:
                 list_group, notice = get_name_group(st.session_state.code_prokan)
-                list_group = ["ALL"] + list_group
+                list_group = ["ALL", "XTJ"] + list_group
             except:
-                list_group = ["ALL"]
+                list_group = ["ALL", "XTJ"]
             col_left_prj_grid_1.multiselect("Dev :red[(＊CADICS作成時に入力するだけです。)]", list_group,
-                                            default=["ALL"],
+                                            default=["XTJ"],
                                             key="dev_prokan")
             if st.session_state.position == "admin" or st.session_state.position == "master":
                 col_left_prj_grid_1.markdown('ファイルをインポート :blue[( 仕様表, 関連表①，②，③，④) ] ')
@@ -280,6 +280,7 @@ def main():
             if modal_create_cadics.is_open():
                 with modal_create_cadics.container():
                     with st.spinner(text="In progress..."):
+                        print('ok')
                         notice, session, data, project_id, app_list = create_cadics_new(st.session_state.case_prokan,
                                                                                         st.session_state.plant_prokan,
                                                                                         st.session_state.pwt_prokan,

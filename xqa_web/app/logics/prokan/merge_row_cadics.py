@@ -50,11 +50,15 @@ def combine_dataframe(df, columns_to_compare, KCA_Project_group_columns_f, Comme
                 else:
                     check_flag = True
                     if len(df.iloc[i, 1]) > 16:
-                        df.iloc[j, 1] = a + f"-d000{int(df.iloc[i, 1][-1]) + 1}"
+                        # df.iloc[j, 1] = a + f"-d000{int(df.iloc[i, 1][-1]) + 1}"
+                        next_num = get_next_index(df.iloc[i, 1])
+                        df.iloc[j, 1] = a + f"-d{next_num:04d}"
                     elif len(df.iloc[i, 1]) == 16 and j - i == 1:
                         df.iloc[j, 1] = a + f"-d0001"
                     elif len(df.iloc[i, 1]) == 16 and j - i > 1:
-                        df.iloc[j, 1] = a + f"-d000{int(df.iloc[temp, 1][-1]) + 1}"
+                        # df.iloc[j, 1] = a + f"-d000{int(df.iloc[temp, 1][-1]) + 1}"
+                        next_num = get_next_index(df.iloc[temp, 1])
+                        df.iloc[j, 1] = a + f"-d{next_num:04d}"
                         temp = j
                     else:
                         None
@@ -95,5 +99,11 @@ def concat_string(df, index, list_concat_string):
             string = string + value
     return string
 
+import re
 
+def get_next_index(val):
+    m = re.search(r'-d(\d+)$', str(val))
+    if m:
+        return int(m.group(1)) + 1
+    return 1
 

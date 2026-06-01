@@ -70,6 +70,7 @@ def create_cadics_new(case, market, powertrain, car, list_group):
             batan_no = dic_lot[lot]
             list_cadics = get_list_cadic(batan_no, data_karenhyo1, data_karenhyo1_list, max_column_karenhyo1)
             list_cadics_filter = filter_cadics(data_karenhyo2, list_cadics, address_zone, body_type)
+            # list_cadics_filter = ['mstr-003-0038600']
             if len(list_cadics_filter) > 0:
                 for cadics_no in list_cadics_filter:
                     list_dic_records = pick_car(data_karenhyo2, dict_except_config, cadics_no, adddress_config,
@@ -573,7 +574,11 @@ def edit_dataframe(my_dic_data, frame_header, develop_case, market, powertrain, 
     num_columns = len(frame.columns)
     column_names = [f'{i + 1}' for i in range(num_columns)]
     frame.columns = column_names
-    df_sorted = frame.sort_values(by="2")
+    # df_sorted = frame.sort_values(by="2")
+    df_sorted = frame.sort_values(
+        by="2",
+        key=lambda col: col.str.extract(r'(?:-d(\d+))$')[0].fillna(0).astype(int)
+    )
 
     result = pd.concat([frame_header, df_sorted], axis=0)
     result = result.reset_index(drop=True)
