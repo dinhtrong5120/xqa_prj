@@ -1,0 +1,44 @@
+# DATABASE_URL=xqa-prokan-collect-database.ccp09vvmtat0.ap-southeast-1.rds.amazonaws.com
+# DATABASE_USERNAME=admin
+# DATABASE_PASSWORD=12341234
+# DATABASE_NAME_SYO=db_new_prj_final_backup
+# DATABASE_NAME=xqz_no1_final2
+
+# TVSO_DATABASE_NAME_SYO=xqz_syo_tvso_db
+# TVSO_DATABASE_NAME=xqz_prokan_tvso_db
+
+# DB_HOST=xqa-prokan-collect-database.ccp09vvmtat0.ap-southeast-1.rds.amazonaws.com
+# DB_USER=admin
+# DB_PASSWORD=12341234
+# DB_NAME_SYO=db_new_prj_final_backup
+# DB_NAME=xqz_no1_final2
+
+# TVSO_DB_NAME_SYO=xqz_syo_tvso_db
+# TVSO_DB_NAME=xqz_prokan_tvso_db
+
+# USER_POOL_ID = ap-southeast-1_th0X3PdII
+# APP_CLIENT_ID = 5el4a0sg9655p9oouj9fbiqku4
+# APP_CLIENT_SECRET = 11fkiognat3jsbppn7mueddeqrlm9ic95d6b2ej6h0dk0c5vp69o
+
+
+DATABASE_URL=127.0.0.1
+DATABASE_USERNAME=root
+DATABASE_PASSWORD=Sql123456
+DATABASE_NAME_SYO=db_new_prj_final
+DATABASE_NAME=prokan_prj_test_temp
+
+TVSO_DATABASE_NAME_SYO=xqz_syo_tvso_db
+TVSO_DATABASE_NAME=xqz_prokan_tvso_db
+
+DB_HOST=127.0.0.1
+DB_USER=root
+DB_PASSWORD=Sql123456
+DB_NAME_SYO=db_new_prj_final
+DB_NAME=prokan_prj_test_temp
+
+TVSO_DB_NAME_SYO=xqz_syo_tvso_db
+TVSO_DB_NAME=xqz_prokan_tvso_db
+
+USER_POOL_ID= 
+APP_CLIENT_ID = 
+APP_CLIENT_SECRET = 

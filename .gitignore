@@ -221,3 +221,5 @@ __marimo__/
 #  Log
 logs/
 .idea/
+*.xml
+*.iml
